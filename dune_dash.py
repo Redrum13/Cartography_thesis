@@ -16,9 +16,6 @@ DATA PREPARATION NOTES:
 ============================================================
 """
 
-import warnings
-warnings.filterwarnings("ignore")
-
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
@@ -29,10 +26,10 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-import io, base64, json
-from datetime import date
+import io, base64
 from shapely.geometry import Point
 from folium import plugins
+from windrose import WindroseAxes
 
 # ------------------------------------------------------------------------------
 # PAGE CONFIG
@@ -297,27 +294,13 @@ def wind_completeness(wind_df, years, months):
 
 def build_wind_rose_image(wind_df):
     """Return a base64 PNG of a wind rose from the given wind DataFrame."""
-    try:
-        from windrose import WindroseAxes
-        fig = plt.figure(figsize=(3, 3), facecolor="none")
-        ax  = WindroseAxes.from_ax(fig=fig)
-        ax.bar(wind_df["direction"], wind_df["speed_ms"],
-               normed=True, opening=0.8, edgecolor="white",
-               cmap=plt.cm.YlOrRd, bins=np.arange(0, 12, 2))
-        ax.set_facecolor("none")
-        fig.patch.set_alpha(0)
-    except ImportError:
-        # Fallback: simple polar bar chart
-        fig, ax = plt.subplots(subplot_kw={"projection": "polar"},
-                               figsize=(3, 3), facecolor="none")
-        bins  = np.linspace(0, 2*np.pi, 17)
-        dirs  = np.deg2rad(wind_df["direction"].dropna())
-        counts, _ = np.histogram(dirs, bins=bins)
-        theta = (bins[:-1] + bins[1:]) / 2
-        ax.bar(theta, counts, width=np.diff(bins), color="#E6A817",
-               alpha=0.8, edgecolor="white")
-        ax.set_facecolor("none")
-        fig.patch.set_alpha(0)
+    fig = plt.figure(figsize=(3, 3), facecolor="none")
+    ax = WindroseAxes.from_ax(fig=fig)
+    ax.bar(wind_df["direction"], wind_df["speed_ms"],
+           normed=True, opening=0.8, edgecolor="orange",
+           cmap=plt.cm.YlOrBr, bins=np.arange(0, 12, 2))
+    ax.set_facecolor("none")
+    fig.patch.set_alpha(0)
 
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=100, bbox_inches="tight",
@@ -873,7 +856,6 @@ def main():
             click = map_data["last_object_clicked"]
             lat, lon = click.get("lat"), click.get("lng")
             if lat and lon:
-                from shapely.geometry import Point
                 click_pt = Point(lon, lat)
                 var_proj = var_gdf.to_crs("EPSG:3857")
                 click_proj = gpd.GeoDataFrame(
