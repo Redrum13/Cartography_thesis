@@ -628,24 +628,6 @@ def build_map(
             </div>
           </div>""")
 
-    if show_wind:
-        legend_sections.append("""
-          <div class="leg-section">
-            <div class="leg-title">Wind Speed Scale</div>
-            <div style="display:flex;align-items:center;gap:3px;margin:3px 0;">
-              <span style="font-size:9px;color:#555;">Calm</span>
-              <div style="flex:1;height:8px;background:linear-gradient(to right,
-                #FFFFCC,#FED976,#FD8D3C,#E31A1C,#800026);
-                border-radius:2px;"></div>
-              <span style="font-size:9px;color:#555;">Strong</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;
-                        font-size:8px;color:#888;margin-top:1px;">
-              <span>0 m/s</span><span>2</span><span>4</span>
-              <span>6</span><span>8</span><span>10+ m/s</span>
-            </div>
-          </div>""")
-
     # Only render legend if at least one layer is active
     if legend_sections:
         sections_html = "".join(legend_sections)
