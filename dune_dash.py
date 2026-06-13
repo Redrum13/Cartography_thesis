@@ -577,6 +577,9 @@ def build_map(
             <div class="leg-row" style="font-size:9px;color:#888;">
               Circle size ∝ magnitude of change
             </div>
+            <div class="leg-row" style="font-size:9px;color:#888;">
+              Oriented toward Dune center for left and right side consistency.
+            </div>
           </div>""")
 
     if show_playa:
