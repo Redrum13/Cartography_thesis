@@ -297,7 +297,7 @@ def build_wind_rose_image(wind_df):
     fig = plt.figure(figsize=(3, 3), facecolor="none")
     ax = WindroseAxes.from_ax(fig=fig)
     ax.bar(wind_df["direction"], wind_df["speed_ms"],
-           normed=True, opening=0.8, edgecolor="orange",
+           normed=True, opening=0.8, edgecolor="gray",
            cmap=plt.cm.YlOrBr, bins=np.arange(0, 12, 2))
     ax.set_facecolor("none")
     fig.patch.set_alpha(0)
