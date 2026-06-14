@@ -447,7 +447,7 @@ def build_map(
             dash = "8 4" if row.get("is_gap_fill", False) else None
             style = {
                 "color": c,
-                "weight": 2,
+                "weight": 1,
                 "opacity": opacity,
                 "dashArray": dash,
             }
