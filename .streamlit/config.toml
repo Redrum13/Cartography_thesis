@@ -1,0 +1,19 @@
+[theme]
+primaryColor = "#8B5E3C"
+backgroundColor = "#F5F0E8"
+secondaryBackgroundColor = "#EDE6D3"
+textColor = "#3B2F1E"
+font = "sans-serif"
+baseFontSize = 16
+
+[theme.sidebar]
+backgroundColor = "#EDE6D3"
+textColor = "#3B2F1E"
+
+[browser]
+gatherUsageStats = false
+
+[server]
+enableCORS = false
+enableXsrfProtection = true
+maxUploadSize = 200
