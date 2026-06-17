@@ -325,10 +325,9 @@ def load_wind_data():
 
 
 @st.cache_data(show_spinner="Loading uncertainty points ...")
-def load_uncertainty_points():
-    path = "main_data/multiline_uncertainty_uncertainty_points.geojson"
+def load_uncertainty_lines():
+    path = "main_data/multiline_uncertainty_perpendicular_lines.geojson"
     gdf = gpd.read_file(path)
-    gdf.geometry = gdf.geometry.apply(lambda g: Point(g.x, g.y))
     gdf = gdf.to_crs("EPSG:4326")
     if "uncertainty_m" in gdf.columns:
         gdf = gdf.rename(columns={"uncertainty_m": "error_m"})
@@ -456,20 +455,20 @@ def build_map(
         name="Satellite", overlay=False, control=True,
     ).add_to(m)
 
-    # 1. UNCERTAINTY
     if show_uncertainty and not unc_gdf.empty:
         for _, row in unc_gdf.iterrows():
             err = row.get("error_m", 0)
             if pd.isna(err):
                 continue
             c = unc_color(err)
-            folium.CircleMarker(
-                location=[row.geometry.y, row.geometry.x],
-                radius=5, color=c, fill=True, fill_color=c, fill_opacity=1.0,
+            coords = list(row.geometry.coords)
+            folium.PolyLine(
+                locations=[[lat, lon] for lon, lat in coords],
+                color=c,
+                weight=2,
+                opacity=opacity,
                 tooltip=folium.Tooltip(
-                    f"<b>GNSS Uncertainty</b><br>Error: {err:.2f} m<br>"
-                    f"GNSS: {row.get('gnss_val','---')}<br>"
-                    f"Detected: {row.get('detected_val','---')}"
+                    f"<b>GNSS Uncertainty</b><br>Error: {err:.2f} m"
                 ),
             ).add_to(m)
 
@@ -643,12 +642,12 @@ def build_map(
         sections.append("""
         <div class="ls">
         <div class="lt">GNSS Uncertainty</div>
-        <div class="lr"><div style="width:10px;height:10px;border-radius:50%;
-            background:#31A857;"></div><span>&lt; 2 m (good)</span></div>
-        <div class="lr"><div style="width:10px;height:10px;border-radius:50%;
-            background:#F7E62C;"></div><span>2-6 m (moderate)</span></div>
-        <div class="lr"><div style="width:10px;height:10px;border-radius:50%;
-            background:#C7400F;"></div><span>&gt; 6 m (poor)</span></div>
+        <div class="lr"><div style="width:14px;height:3px;background:#31A857;"></div>
+            <span>&lt; 2 m</span></div>
+        <div class="lr"><div style="width:14px;height:3px;background:#F7E62C;"></div>
+            <span>2-6 m</span></div>
+        <div class="lr"><div style="width:14px;height:3px;background:#C7400F;"></div>
+            <span>&gt; 6 m</span></div>
         </div>""")
 
     if sections:
@@ -749,7 +748,7 @@ def main():
     crest_gdf = safe_load(load_crest_lines, "crest lines")
     var_gdf   = safe_load(load_variability_points, "variability points")
     playa_gdf = safe_load(load_playa_polygons, "playa polygons")
-    unc_gdf   = safe_load(load_uncertainty_points, "uncertainty points")
+    unc_gdf   = safe_load(load_uncertainty_lines, "uncertainty lines")
 
     try:
         wind_df = load_wind_data()
