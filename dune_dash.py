@@ -603,7 +603,7 @@ def build_map(
             <span style="font-size:8px;color:#0D0887;">{early}</span>
             <div style="flex:1;height:6px;background:linear-gradient(to right,
               #0D0887,#9C179E,#ED7953,#F0F921);border-radius:2px;"></div>
-            <span style="font-size:8px;color:#F0F921;">{late}</span>
+            <span style="font-size:8px;color:#ED7953;">{late}</span>
           </div>
         </div>""")
 
