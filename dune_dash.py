@@ -860,6 +860,20 @@ def main():
     with right_col:
         st.markdown('<div class="right-scroll">', unsafe_allow_html=True)
 
+        # Wind coverage
+        st.markdown('<div class="right-panel-header">Wind Coverage</div>', unsafe_allow_html=True)
+        if not wind_df.empty:
+            fig_g = build_gantt_figure(wind_df, selected_years, selected_months)
+            st.pyplot(fig_g, use_container_width=True)
+            plt.close(fig_g)
+            if wind_pct < WIND_WARN_PCT:
+                st.markdown(
+                    f'<div class="warn-box">! {wind_pct*100:.0f}% coverage</div>',
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.caption("No wind data loaded.")
+        
         # Variability trend
         st.markdown('<div class="right-panel-header">Variability Trend</div>', unsafe_allow_html=True)
 
@@ -892,20 +906,6 @@ def main():
             plt.close(fig_h)
         else:
             st.caption("No uncertainty data.")
-
-        # Wind coverage
-        st.markdown('<div class="right-panel-header">Wind Coverage</div>', unsafe_allow_html=True)
-        if not wind_df.empty:
-            fig_g = build_gantt_figure(wind_df, selected_years, selected_months)
-            st.pyplot(fig_g, use_container_width=True)
-            plt.close(fig_g)
-            if wind_pct < WIND_WARN_PCT:
-                st.markdown(
-                    f'<div class="warn-box">! {wind_pct*100:.0f}% coverage</div>',
-                    unsafe_allow_html=True,
-                )
-        else:
-            st.caption("No wind data loaded.")
 
         st.divider()
 
