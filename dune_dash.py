@@ -564,7 +564,7 @@ def build_map(
             img = Image.open(png_path)
             img_array = np.array(img)
 
-            brightness_factor = 1.2
+            brightness_factor = 1.5
             img_array = np.clip(img_array * brightness_factor, 0, 255).astype(np.uint8)
 
             folium.raster_layers.ImageOverlay(
