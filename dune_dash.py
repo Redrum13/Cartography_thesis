@@ -1077,32 +1077,7 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             returned_objects=["last_object_clicked"],
             key="b_folium_map"
         )
-
-         # ── FILL EXPORT PLACEHOLDER ──────────────────────────────────────────────
-    with export_placeholder.container():
-        st.divider()
-        st.markdown('<div class="right-panel-header">Export</div>', unsafe_allow_html=True)
-
-        st.download_button(
-                "Download Map (HTML)",
-                data=folium_map._repr_html_(),
-                file_name="dune_map.html",
-                mime="text/html",
-                use_container_width=True,
-                key="b_download_map"
-            )
-
-        if not f_crest.empty:
-            st.download_button(
-                "Download Crests (CSV)",
-                data=f_crest.drop(columns="geometry").to_csv(index=False),
-                file_name="crest_lines_filtered.csv",
-                mime="text/csv",
-                use_container_width=True,
-                key="b_download_crests"
-            )
-        else:
-            st.button("Download Crests (CSV)", disabled=True, use_container_width=True, key="b_download_crests_disabled")
+        
 
     # ── RIGHT COLUMN ─────────────────────────────────────────────────────────
     with right_col:
@@ -1155,7 +1130,29 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
         else:
             st.caption("No uncertainty data.")
 
-        export_placeholder = st.empty()
+        st.divider()
+        st.markdown('<div class="right-panel-header">Export</div>', unsafe_allow_html=True)
+
+        st.download_button(
+                "Download Map (HTML)",
+                data=folium_map._repr_html_(),
+                file_name="dune_map.html",
+                mime="text/html",
+                use_container_width=True,
+                key="b_download_map"
+            )
+
+        if not f_crest.empty:
+            st.download_button(
+                "Download Crests (CSV)",
+                data=f_crest.drop(columns="geometry").to_csv(index=False),
+                file_name="crest_lines_filtered.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="b_download_crests"
+            )
+        else:
+            st.button("Download Crests (CSV)", disabled=True, use_container_width=True, key="b_download_crests_disabled")
 
 
 # ------------------------------------------------------------------------------
