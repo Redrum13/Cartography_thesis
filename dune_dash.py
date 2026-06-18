@@ -679,7 +679,7 @@ def build_map(
           <div style="font-size:10px;color:#5C3D1E;font-weight:700;font-family:Georgia,serif;
                       margin-bottom:3px;letter-spacing:.06em;">WIND ROSE</div>
           <div style="font-size:9px;color:#5C3D1E;font-weight:700;font-family:Georgia,serif;
-                      margin-bottom:3px;letter-spacing:.06em;">Dieprivier station (~ 95km towords NE)</div>
+                      margin-bottom:3px;letter-spacing:.06em;">Dieprivier station <br> (~ 95km towords NE)</div>
           <img src="data:image/png;base64,{wind_b64}" width="130"/>
           <div style="margin-top:4px;font-size:8px;color:#5C3D1E;font-weight:600;">Wind speed (m/s)</div>
           <div style="display:flex;align-items:center;margin-top:2px;gap:2px;">
