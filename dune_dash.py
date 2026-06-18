@@ -678,6 +678,8 @@ def build_map(
                     border-radius:8px;padding:7px 8px;text-align:center;opacity:{opacity};">
           <div style="font-size:10px;color:#5C3D1E;font-weight:700;font-family:Georgia,serif;
                       margin-bottom:3px;letter-spacing:.06em;">WIND ROSE</div>
+          <div style="font-size:6px;color:#5C3D1E;font-weight:700;font-family:Georgia,serif;
+                      margin-bottom:3px;letter-spacing:.06em;">Dieprivier station (~ 95km towords NE)</div>
           <img src="data:image/png;base64,{wind_b64}" width="130"/>
           <div style="margin-top:4px;font-size:8px;color:#5C3D1E;font-weight:600;">Wind speed (m/s)</div>
           <div style="display:flex;align-items:center;margin-top:2px;gap:2px;">
@@ -1273,7 +1275,7 @@ def render_feedback_form():
         )
 
         q2d = st.select_slider(
-            "The gap fill in crest lines helps in understanding line continuity.",
+            "The gap fill in crest lines helps in understanding line continuity despite data gaps.",
             LIKERT, value="3 – Neutral", key="fb_q2d",
         )
 
