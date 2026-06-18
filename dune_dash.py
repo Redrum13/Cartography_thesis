@@ -1,7 +1,7 @@
 """
 ============================================================
  DUNE DASHBOARD  –  Streamlit app  (4:1 column layout)
- Aeolian dune monitoring: crest lines, variability, playas,
+ Aeolian dune monitoring: crest lines, movement, playas,
  wind roses, and GNSS uncertainty (2017-2026, May-August)
 ============================================================
 """
@@ -20,6 +20,10 @@ import io, base64
 from shapely.geometry import Point
 from folium import plugins
 from windrose import WindroseAxes
+# ----------------------------Need to add to streamlit--------------------------
+import os
+import json
+from PIL import Image
 
 # ------------------------------------------------------------------------------
 # PAGE CONFIG
@@ -28,7 +32,6 @@ st.set_page_config(
     page_title="Star Dune Dynamics Dashboard",
     page_icon=None,
     layout="wide",
-    initial_sidebar_state="expanded",
 )
 
 # ------------------------------------------------------------------------------
@@ -40,6 +43,7 @@ CSS = """
 span[data-baseweb="tag"] span {
     color: #FFFFFF !important;
 }
+
 /* ── Base variables ─────────────────────────────────────────── */
 :root {
     --bg-primary: #F5F0E8;
@@ -75,13 +79,39 @@ span[data-baseweb="tag"] span {
     max-width: 100% !important;
 }
 
-/* ── Left sidebar ────────────────────────────────────────────── */
-[data-testid="stSidebar"] {
-    background: var(--bg-secondary) !important;
-    border-right: 1px solid var(--border-color) !important;
-    width: 300px !important;
+/* ── Panel styling for both left and right columns ────────────── */
+[data-testid="column"] {
+    background: var(--bg-secondary);
+    padding: 0.5rem 0.8rem;
+    border-radius: 4px;
+    height: 100%;
+    min-height: 75vh;
+    font-family: 'Georgia', serif;
+    font-size: 0.7rem;
 }
-[data-testid="stSidebar"] section { padding-top: 0.3rem; }
+
+/* Left panel gets a right border */
+[data-testid="column"]:first-child {
+    border-right: 1px solid var(--border-color);
+}
+
+
+/* Right panel gets a left border */
+[data-testid="column"]:last-child {
+    border-left: 1px solid var(--border-color);
+}
+
+/* ── Panel labels ────────────────────────────────────────────── */
+[data-testid="column"] label {
+    color: var(--text-secondary);
+    font-size: .82rem !important;
+}
+[data-testid="column"] .stCheckbox label {
+    color: var(--text-secondary);
+}
+[data-testid="column"] .stSelectbox label {
+    color: var(--text-secondary);
+}
 
 /* ── Typography ───────────────────────────────────────────────── */
 h1, h2, h3 {
@@ -96,18 +126,6 @@ h3 { font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase
 p, span, label, div {
     font-family: 'Segoe UI', sans-serif;
     color: var(--text-primary);
-}
-
-/* ── Sidebar labels ───────────────────────────────────────────── */
-[data-testid="stSidebar"] label {
-    color: var(--text-secondary) !important;
-    font-size: .82rem !important;
-}
-[data-testid="stSidebar"] .stCheckbox label {
-    color: var(--text-secondary) !important;
-}
-[data-testid="stSidebar"] .stSelectbox label {
-    color: var(--text-secondary) !important;
 }
 
 /* ── Slider ───────────────────────────────────────────────────── */
@@ -138,7 +156,7 @@ hr { border-color: var(--border-color) !important; margin: 4px 0; }
 /* ── Right column panel headers ──────────────────────────────── */
 .right-panel-header {
     font-family: 'Georgia', serif;
-    font-size: 0.7rem;
+    font-size: 0.9rem;
     color: var(--brown-dark);
     text-transform: uppercase;
     letter-spacing: .08em;
@@ -220,6 +238,28 @@ hr { border-color: var(--border-color) !important; margin: 4px 0; }
 
 /* ── Matplotlib figure backgrounds ───────────────────────────── */
 [data-testid="stImage"] img { background: transparent; }
+
+/* ── Tabs styling ────────────────────────────────────────────── */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 2px;
+}
+.stTabs [data-baseweb="tab"] {
+    background: var(--bg-secondary);
+    border-radius: 4px 4px 0 0;
+    padding: 6px 16px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+.stTabs [data-baseweb="tab"]:hover {
+    background: var(--bg-card);
+    color: var(--accent);
+}
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+    background: var(--bg-card);
+    color: var(--accent);
+    border-bottom: 3px solid var(--accent);
+}
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -263,6 +303,17 @@ def _dark_fig(w, h):
 # DATA LOADING
 # ------------------------------------------------------------------------------
 
+@st.cache_data(show_spinner="Loading base imagery...")
+def load_base_imagery_metadata():
+    """Load the metadata for processed PNG overlays"""
+    metadata_path = "Base_tif/metadata.json"
+    if not os.path.exists(metadata_path):
+        return {}
+    
+    with open(metadata_path, 'r') as f:
+        metadata = json.load(f)
+    return metadata
+
 @st.cache_data(show_spinner="Loading crest lines ...")
 def load_crest_lines():
     path = "main_data/extended_centerlines.geojson"
@@ -277,8 +328,8 @@ def load_crest_lines():
     return gdf
 
 
-@st.cache_data(show_spinner="Loading variability points ...")
-def load_variability_points():
+@st.cache_data(show_spinner="Loading movement points ...")
+def load_movement_points():
     path = "main_data/centerline_points.geojson"
     gdf = gpd.read_file(path).to_crs("EPSG:4326")
     gdf["point_id"] = gdf["point_id"].astype(str)
@@ -341,6 +392,52 @@ def load_uncertainty_lines():
 # ------------------------------------------------------------------------------
 # HELPERS
 # ------------------------------------------------------------------------------
+
+def get_base_imagery_for_date(metadata, selected_years, selected_months, date_a, date_b, preset):
+    """Determine which PNG to display based on selected date range"""
+    
+    if not metadata:
+        return None, None, None
+    
+    if preset == "Compare":
+        # Use date_a as the reference
+        target_year = date_a.year
+        target_month = date_a.month
+    elif preset == "Annual":
+        # Use the selected year, use May as default month
+        target_year = selected_years[0] if selected_years else 2017
+        target_month = 5  # May
+    elif preset == "Monthly":
+        # Use the selected month, use earliest year available
+        target_year = 2017  # Or get from metadata
+        month_name = selected_months[0] if selected_months else "May"
+        target_month = ALL_MONTHS[month_name]
+    else:  # Custom
+        # Use the earliest selected year and month
+        target_year = min(selected_years) if selected_years else 2017
+        if selected_months:
+            target_month = ALL_MONTHS[selected_months[0]]
+        else:
+            target_month = 5  # May
+    
+    key = f"{target_year}_{target_month:02d}"
+    
+    if key in metadata:
+        png_path = os.path.join("Base_tif", metadata[key]["png_path"])
+        bounds = metadata[key]["bounds"]
+        date_full = metadata[key].get("date_full", None) 
+        return png_path, bounds, date_full
+    
+    available_keys = sorted(metadata.keys())
+    if available_keys:
+        # Find the closest key
+        closest_key = min(available_keys, key=lambda k: abs(int(k.split('_')[0]) - target_year))
+        png_path = os.path.join("Base_tif", metadata[closest_key]["png_path"])
+        bounds = metadata[closest_key]["bounds"]
+        date_full = metadata[closest_key].get("date_full", None) 
+        return png_path, bounds, date_full
+    
+    return None, None, None
 
 def date_colormap(dates):
     timestamps = pd.to_datetime(dates).astype(np.int64)
@@ -435,9 +532,14 @@ def build_map(
     crest_gdf, var_gdf, playa_gdf, unc_gdf,
     wind_b64, wind_completeness_pct,
     show_crests, show_gap_fills,
-    show_variability, date_a, date_b,
+    show_movement, date_a, date_b,
     show_playa, show_wind, show_uncertainty,
     opacity, date_min=None, date_max=None,
+    show_base_imagery=True, 
+    base_metadata=None,  
+    selected_years=None, 
+    selected_months=None,  
+    preset="Custom", 
 ):
     m = folium.Map(location=MAP_CENTER, zoom_start=MAP_ZOOM,
                    tiles=None, control_scale=True)
@@ -454,6 +556,22 @@ def build_map(
         attr="Esri", max_native_zoom=16, max_zoom=22,
         name="Satellite", overlay=False, control=True,
     ).add_to(m)
+
+    if show_base_imagery and base_metadata:
+        png_path, bounds, base_img_date = get_base_imagery_for_date(base_metadata, selected_years, selected_months, date_a, date_b, preset)
+        
+        if png_path and bounds:           
+            img = Image.open(png_path)
+            img_array = np.array(img)
+
+            folium.raster_layers.ImageOverlay(
+                image=img_array,
+                bounds=[[bounds["bottom"], bounds["left"]], [bounds["top"], bounds["right"]]],
+                opacity=opacity,
+                name="Base Imagery",
+                overlay=True,
+                control=True
+            ).add_to(m)
 
     if show_uncertainty and not unc_gdf.empty:
         for _, row in unc_gdf.iterrows():
@@ -514,8 +632,8 @@ def build_map(
                 ),
             ).add_to(m)
 
-    # 4. VARIABILITY POINTS
-    if show_variability and date_a and date_b and not var_gdf.empty:
+    # 4. movement POINTS
+    if show_movement and date_a and date_b and not var_gdf.empty:
         def _agg(df, dt):
             sub = df[df["date"] == pd.Timestamp(dt)]
             return sub.groupby("point_id")["geometry"].first(), \
@@ -537,10 +655,10 @@ def build_map(
                 radius=radius, stroke=False,
                 color=color, fill=True, fill_color=color, fill_opacity=opacity,
                 tooltip=folium.Tooltip(
-                    f"<b>Crest variability</b><br>Point: {pid}<br>"
+                    f"<b>Crest movement</b><br>Point: {pid}<br>"
                     f"Date A ({pd.Timestamp(date_a).date()}): {val_a:.2f} m<br>"
                     f"Date B ({pd.Timestamp(date_b).date()}): {val_b:.2f} m<br>"
-                    f"<b>Delta: {diff:+.2f} m</b>"
+                    f"<b>Change: {diff:+.2f} m</b>"
                 ),
             ).add_to(m)
 
@@ -606,30 +724,30 @@ def build_map(
           </div>
         </div>""")
 
-    if show_variability:
+    if show_movement:
         sections.append("""
         <div class="ls">
-        <div class="lt">Variability Delta (m)</div>
+        <div class="lt">Crest Movement</div>
         <div style="display:flex;align-items:center;gap:6px;margin:3px 0;flex-wrap:wrap;">
             <div style="display:flex;align-items:center;gap:3px;">
             <svg width="14" height="14">
                 <circle cx="7" cy="7" r="3" fill="none" stroke="#8B5E3C" stroke-width="1.5"/>
             </svg>
-            <span style="font-size:8px;color:#5C3D1E;">Small Δ</span>
+            <span style="font-size:8px;color:#5C3D1E;"> &lt; 2 m</span>
             </div>
             <div style="display:flex;align-items:center;gap:3px;">
             <svg width="18" height="18">
                 <circle cx="9" cy="9" r="6" fill="none" stroke="#8B5E3C" stroke-width="1.5"/>
             </svg>
-            <span style="font-size:8px;color:#5C3D1E;">Medium Δ</span>
+            <span style="font-size:8px;color:#5C3D1E;">2 m - 6 m</span>
             </div>
             <div style="display:flex;align-items:center;gap:3px;">
             <svg width="24" height="24">
                 <circle cx="12" cy="12" r="9" fill="none" stroke="#8B5E3C" stroke-width="1.5"/>
             </svg>
-            <span style="font-size:8px;color:#5C3D1E;">Large Δ</span>
+            <span style="font-size:8px;color:#5C3D1E;"> &gt; 6 m</span>
             </div>
-            <div style="display:flex;align-items:center;gap:3px;margin:3px 0;">
+            <div style="display:flex;align-items:center;gap:3px;margin:3px 0;width:100%;">
                 <span style="font-size:8px;color:#D62646;">-10</span>
                 <div style="flex:1;height:6px;background:linear-gradient(to right,
                 #D62646,#F4B3C2,#FFFDE0,#D9F0D9,#008F48);border-radius:2px;"></div>
@@ -648,6 +766,15 @@ def build_map(
             <span>2-6 m</span></div>
         <div class="lr"><div style="width:14px;height:3px;background:#C7400F;"></div>
             <span>&gt; 6 m</span></div>
+        </div>""")
+
+    if show_base_imagery and base_img_date:
+        sections.append(f"""
+        <div class="ls">
+            <div class="lt">Base Imagery</div>
+            <div class="lr">
+                <span style="font-size:9px;color:#5C3D1E;font-weight:600;">{base_img_date}</span>
+            </div>
         </div>""")
 
     if sections:
@@ -688,7 +815,7 @@ def build_map(
 # CHART HELPERS
 # ------------------------------------------------------------------------------
 
-def variability_trend_fig(var_gdf, nearest_pid):
+def movement_trend_fig(var_gdf, nearest_pid):
     trend = var_gdf[var_gdf["point_id"] == nearest_pid].sort_values("date")
     fig, ax = _dark_fig(3.6, 1.9)
     ax.plot(trend["date"], trend["distance_m"],
@@ -706,7 +833,7 @@ def variability_trend_fig(var_gdf, nearest_pid):
 def uncertainty_hist_fig(unc_gdf):
     fig, ax = _dark_fig(3.6, 1.9)
     vals = unc_gdf["error_m"].dropna()
-    ax.hist(vals, bins=20, color="#C49A6C", edgecolor="#F5F0E8", alpha=0.9)  # Bar color unchanged
+    ax.hist(vals, bins=20, color="#C49A6C", edgecolor="#F5F0E8", alpha=0.9)
     ax.axvline(UNC_GREEN,  color="#31A857", linestyle="--", lw=2, label=f"<{UNC_GREEN} m")
     ax.axvline(UNC_YELLOW, color="#F7E62C", linestyle="--", lw=2, label=f"<{UNC_YELLOW} m")
     ax.set_xlabel("Error (m)", fontsize=7)
@@ -717,6 +844,315 @@ def uncertainty_hist_fig(unc_gdf):
     ax.grid(color="#1E3448", linewidth=0.4, linestyle=":")
     fig.tight_layout(pad=0.4)
     return fig
+
+
+# ------------------------------------------------------------------------------
+# RENDER FUNCTIONS
+# ------------------------------------------------------------------------------
+
+       
+def render_dashboard_layout_1(left_col, map_col, right_col):
+    """Render the main dashboard layout with left panel, map, and right panel"""
+    
+    # Load data (same as layout A)
+    def safe_load(fn, label):
+        try:
+            return fn()
+        except Exception as e:
+            st.error(f"Could not load {label}: {e}")
+            return gpd.GeoDataFrame()
+
+    crest_gdf = safe_load(load_crest_lines, "crest lines")
+    var_gdf   = safe_load(load_movement_points, "movement points")
+    playa_gdf = safe_load(load_playa_polygons, "playa polygons")
+    unc_gdf   = safe_load(load_uncertainty_lines, "uncertainty lines")
+
+    try:
+        wind_df = load_wind_data()
+    except Exception as e:
+        st.error(f"Could not load wind data: {e}")
+        wind_df = pd.DataFrame()
+
+    base_metadata = load_base_imagery_metadata()
+
+    if "dune_names" not in st.session_state:
+        st.session_state["dune_names"] = (
+            sorted(crest_gdf["dune_name"].dropna().unique())
+            if "dune_name" in crest_gdf.columns else []
+        )
+    date_a = None
+    date_b = None
+    wind_start = None
+    wind_end = None
+
+    # ── LEFT PANEL ──────────────────────────────────────────────────────────
+    with left_col:
+        st.markdown('<div class="right-panel-header">Date Range</div>', unsafe_allow_html=True)
+        
+        # ── PRESETS ──────────────────────────────────────────────────────────────
+        st.markdown('<div class="right-panel-header">Presets</div>', unsafe_allow_html=True)
+        
+        preset = st.radio(
+            "Select View Mode",
+            ["Annual", "Monthly", "Compare", "Custom"],
+            key="b_preset",
+            label_visibility="collapsed",
+            horizontal=True
+        )
+        
+        # ── DYNAMIC DATE SELECTION BASED ON PRESET ──────────────────────────────
+        
+        if preset == "Annual":
+            # Show all years, all months for selected year
+            c1, c2 = st.columns(2)
+            with c1:
+                selected_year = st.selectbox(
+                    "Year",
+                    options=sorted(crest_gdf["year"].unique()),
+                    key="b_annual_year"
+                )
+            with c2:
+                st.markdown('<p style="font-size:0.7rem;color:var(--text-secondary);margin-top:20px;">All Months (May-Aug)</p>', unsafe_allow_html=True)
+            
+            # Filter: specific year, all months
+            selected_years = [selected_year]
+            selected_months = MONTH_NAMES  # All months
+            
+        elif preset == "Monthly":
+            # Show all years, specific month
+            c1, c2 = st.columns(2)
+            with c1:
+                selected_month = st.selectbox(
+                    "Month",
+                    options=MONTH_NAMES,
+                    key="b_monthly_month"
+                )
+            with c2:
+                st.markdown('<p style="font-size:0.7rem;color:var(--text-secondary);margin-top:20px;">All Years (2017-2026)</p>', unsafe_allow_html=True)
+            
+            # Filter: all years, specific month
+            selected_years = ALL_YEARS
+            selected_months = [selected_month]
+            
+        elif preset == "Compare":
+            # Two specific dates for comparison
+            date_options = sorted(crest_gdf["date"].unique())
+            date_strings = [d.strftime("%Y-%m-%d") for d in date_options]
+            
+            c1, c2 = st.columns(2)
+            with c1:
+                date_a_str = st.selectbox(
+                    "Date A",
+                    options=date_strings,
+                    index=0,
+                    key="b_compare_date_a"
+                )
+            with c2:
+                date_b_str = st.selectbox(
+                    "Date B",
+                    options=date_strings,
+                    index=len(date_strings)-1 if len(date_strings) > 1 else 0,
+                    key="b_compare_date_b"
+                )
+            
+            date_a = pd.to_datetime(date_a_str)
+            date_b = pd.to_datetime(date_b_str)
+            
+            # For crest data: only the two specific dates
+            selected_years = list(set([date_a.year, date_b.year]))
+            selected_months = list(set([date_a.strftime("%B"), date_b.strftime("%B")]))
+            
+            # For wind data: use the full range between dates
+            wind_start = min(date_a, date_b)
+            wind_end = max(date_a, date_b)
+            gantt_years = list(range(wind_start.year, wind_end.year + 1))
+            gantt_months = MONTH_NAMES
+            wind_pct, f_wind = wind_completeness(wind_df, gantt_years, gantt_months)
+            
+        else:  # Custom
+            # Full control: year range + month selection
+            year_range = st.slider(
+                "Year Range",
+                2017, 2026,
+                (2017, 2026),
+                step=1,
+                key="b_custom_years"
+            )
+
+            st.caption("Bring the circles together to select one year.")
+            selected_years = list(range(year_range[0], year_range[1] + 1))
+            selected_months = st.multiselect(
+                "Months",
+                MONTH_NAMES,
+                default=MONTH_NAMES,
+                key="b_custom_months"
+            )
+            if not selected_months:
+                st.warning("Select at least one month.")
+                selected_months = MONTH_NAMES
+            
+        
+        
+        # ── LAYERS ──────────────────────────────────────────────────────────────
+        disable_movement = preset in ["Annual", "Monthly", "Custom"]
+
+        st.markdown('<div class="right-panel-header">Layers</div>', unsafe_allow_html=True)
+        show_crests = st.checkbox("Crest lines", value=True, key="b_show_crests")
+        show_gap_fills = st.checkbox("  Gap fills", value=True, disabled=not show_crests, key="b_show_gap_fills")
+        show_movement = st.checkbox("Crest Movement", value=True, disabled=disable_movement, key="b_show_movement")
+        if disable_movement:
+            st.caption("Crest movement only available in Compare presets.")
+        show_playa = st.checkbox("Playa polygons", value=True, key="b_show_playa")
+        show_wind = st.checkbox("Wind rose overlay", value=True, key="b_show_wind")
+        show_uncertainty = st.checkbox("Uncertainty lines", value=True, key="b_show_uncertainty")
+        show_base_imagery = st.checkbox("Base Imagery (PNG)", value=True, key="b_show_base_imagery")
+
+        st.markdown('<div class="right-panel-header">Opacity</div>', unsafe_allow_html=True)
+        opacity = st.slider("Layer opacity", 0.2, 1.0, 0.75, 0.05,
+                            label_visibility="collapsed", key="b_opacity_slider")
+        
+        export_placeholder = st.empty()
+
+    # ── FILTER DATA ───────────────────────────────────────────────────────────
+
+
+        if preset == "Compare":
+            f_crest = crest_gdf[crest_gdf["date"].isin([date_a, date_b])].copy()
+            f_playa = playa_gdf[playa_gdf["date"].isin([date_a, date_b])].copy()
+            f_var = var_gdf[var_gdf["date"].isin([date_a, date_b])].copy()
+        else:
+            m_nums = [ALL_MONTHS[m] for m in selected_months]
+            
+            def date_filter(gdf):
+                if gdf.empty or "year" not in gdf.columns:
+                    return gdf
+                return gdf[gdf["year"].isin(selected_years) & gdf["month"].isin(m_nums)].copy()
+            
+            f_crest = date_filter(crest_gdf)
+            f_playa = date_filter(playa_gdf)
+            f_var = var_gdf.copy()
+
+    wind_pct, f_wind = wind_completeness(wind_df, selected_years, selected_months)
+
+    wind_b64 = None
+    if show_wind and not f_wind.empty and wind_pct >= WIND_HIDE_PCT:
+        wind_b64 = build_wind_rose_image(f_wind)
+    elif show_wind and wind_pct < WIND_HIDE_PCT and not f_wind.empty:
+        st.warning("Wind rose hidden: data coverage below 30% for selected period.")
+
+    date_min = f_crest["date"].min() if not f_crest.empty and "date" in f_crest.columns else None
+    date_max = f_crest["date"].max() if not f_crest.empty and "date" in f_crest.columns else None
+
+    # ── MAP ──────────────────────────────────────────────────────────────────
+    with map_col:
+        folium_map = build_map(
+            crest_gdf=f_crest, var_gdf=f_var, playa_gdf=f_playa, unc_gdf=unc_gdf,
+            wind_b64=wind_b64, wind_completeness_pct=wind_pct,
+            show_crests=show_crests, show_gap_fills=show_gap_fills,
+            show_movement=show_movement, date_a=date_a, date_b=date_b,
+            show_playa=show_playa, show_wind=show_wind, show_uncertainty=show_uncertainty,
+            opacity=opacity,
+            date_min=date_min, date_max=date_max,
+            show_base_imagery=show_base_imagery,  # NEW
+            base_metadata=base_metadata,          # NEW
+            selected_years=selected_years,        # NEW
+            selected_months=selected_months,      # NEW
+            preset=preset,   
+        )
+
+        # Zoom-to-feature dropdown
+        st.markdown('<div class="right-panel-header">Zoom to Feature</div>', unsafe_allow_html=True)
+        dune_names = st.session_state.get("dune_names", [])
+        zoom_options = ["-- none --"] + dune_names
+        zoom_to = st.selectbox("Zoom to feature", zoom_options, label_visibility="collapsed", key="b_zoom_select")
+        if zoom_to != "-- none --" and not crest_gdf.empty and "dune_name" in crest_gdf.columns:
+            geoms = crest_gdf[crest_gdf["dune_name"] == zoom_to].geometry
+            if not geoms.empty:
+                b = geoms.total_bounds
+                folium_map.fit_bounds([[b[1], b[0]], [b[3], b[2]]])
+
+        map_data = st_folium(
+            folium_map, width="100%", height=590,
+            returned_objects=["last_object_clicked"],
+            key="b_folium_map"
+        )
+
+         # ── FILL EXPORT PLACEHOLDER ──────────────────────────────────────────────
+    with export_placeholder.container():
+        st.divider()
+        st.markdown('<div class="right-panel-header">Export</div>', unsafe_allow_html=True)
+
+        st.download_button(
+                "Download Map (HTML)",
+                data=folium_map._repr_html_(),
+                file_name="dune_map.html",
+                mime="text/html",
+                use_container_width=True,
+                key="b_download_map"
+            )
+
+        if not f_crest.empty:
+            st.download_button(
+                "Download Crests (CSV)",
+                data=f_crest.drop(columns="geometry").to_csv(index=False),
+                file_name="crest_lines_filtered.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="b_download_crests"
+            )
+        else:
+            st.button("Download Crests (CSV)", disabled=True, use_container_width=True, key="b_download_crests_disabled")
+
+    # ── RIGHT COLUMN ─────────────────────────────────────────────────────────
+    with right_col:
+        st.markdown('<div class="right-scroll">', unsafe_allow_html=True)
+
+        # Wind coverage
+        st.markdown('<div class="right-panel-header">Wind Coverage</div>', unsafe_allow_html=True)
+        if not wind_df.empty:
+            fig_g = build_gantt_figure(wind_df, selected_years, selected_months)
+            st.pyplot(fig_g, use_container_width=True)
+            plt.close(fig_g)
+            if wind_pct < WIND_WARN_PCT:
+                st.markdown(
+                    f'<div class="warn-box">! {wind_pct*100:.0f}% coverage</div>',
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.caption("No wind data loaded.")
+        
+        # movement trend
+        st.markdown('<div class="right-panel-header">movement Trend</div>', unsafe_allow_html=True)
+
+        if (map_data and map_data.get("last_object_clicked")
+                and show_movement and not var_gdf.empty):
+            click = map_data["last_object_clicked"]
+            lat, lon = click.get("lat"), click.get("lng")
+            if lat and lon:
+                click_pt = Point(lon, lat)
+                var_proj = var_gdf.to_crs("EPSG:3857")
+                click_gdf = gpd.GeoDataFrame(
+                    geometry=[click_pt], crs="EPSG:4326"
+                ).to_crs("EPSG:3857")
+                dists = var_proj.geometry.distance(click_gdf.geometry.iloc[0])
+                nearest_pid = var_gdf.iloc[dists.idxmin()]["point_id"]
+
+                fig_ts = movement_trend_fig(var_gdf, nearest_pid)
+                st.pyplot(fig_ts, use_container_width=True)
+                plt.close(fig_ts)
+            else:
+                st.caption("Click a point on the map.")
+        else:
+            st.caption("Click a movement point on the map.")
+
+        # Uncertainty histogram
+        st.markdown('<div class="right-panel-header">Uncertainty</div>', unsafe_allow_html=True)
+        if not unc_gdf.empty and "error_m" in unc_gdf.columns:
+            fig_h = uncertainty_hist_fig(unc_gdf)
+            st.pyplot(fig_h, use_container_width=True)
+            plt.close(fig_h)
+        else:
+            st.caption("No uncertainty data.")
 
 
 # ------------------------------------------------------------------------------
@@ -737,198 +1173,8 @@ def main():
     )
     st.divider()
 
-    # Load data
-    def safe_load(fn, label):
-        try:
-            return fn()
-        except Exception as e:
-            st.error(f"Could not load {label}: {e}")
-            return gpd.GeoDataFrame()
-
-    crest_gdf = safe_load(load_crest_lines, "crest lines")
-    var_gdf   = safe_load(load_variability_points, "variability points")
-    playa_gdf = safe_load(load_playa_polygons, "playa polygons")
-    unc_gdf   = safe_load(load_uncertainty_lines, "uncertainty lines")
-
-    try:
-        wind_df = load_wind_data()
-    except Exception as e:
-        st.error(f"Could not load wind data: {e}")
-        wind_df = pd.DataFrame()
-
-    if "dune_names" not in st.session_state:
-        st.session_state["dune_names"] = (
-            sorted(crest_gdf["dune_name"].dropna().unique())
-            if "dune_name" in crest_gdf.columns else []
-        )
-
-    # ── LEFT SIDEBAR ──────────────────────────────────────────────────────────
-    with st.sidebar:
-        st.markdown("### Date Range")
-        year_range = st.slider("Years", 2017, 2026, (2017, 2026), step=1)
-        selected_years  = list(range(year_range[0], year_range[1] + 1))
-        selected_months = st.multiselect("Months", MONTH_NAMES, default=MONTH_NAMES)
-        if not selected_months:
-            st.warning("Select at least one month.")
-            selected_months = MONTH_NAMES
-
-        st.markdown("### Layers")
-        show_crests    = st.checkbox("Crest lines", value=True)
-        show_gap_fills = st.checkbox("  Gap fills", value=True, disabled=not show_crests)
-        show_variability = st.checkbox("Crest variability", value=True)
-
-        date_a = date_b = None
-        if show_variability and not var_gdf.empty:
-            var_dates = sorted(var_gdf["date"].unique())
-            if len(var_dates) >= 2:
-                date_strings = [d.strftime("%d %b, %y") for d in var_dates]
-                c1, c2 = st.columns(2)
-                with c1:
-                    da_str = st.selectbox("Date A", date_strings, index=0, key="date_a")
-                with c2:
-                    db_str = st.selectbox("Date B", date_strings,
-                                          index=len(date_strings)-1, key="date_b")
-                date_a = pd.to_datetime(da_str)
-                date_b = pd.to_datetime(db_str)
-            else:
-                st.caption("Need 2 or more variability dates.")
-
-        show_playa       = st.checkbox("Playa polygons",    value=True)
-        show_wind        = st.checkbox("Wind rose overlay", value=True)
-        show_uncertainty = st.checkbox("Uncertainty points",   value=True)
-
-        # Opacity
-        st.markdown("### Opacity")
-        opacity = st.slider("Layer opacity", 0.2, 1.0, 0.75, 0.05,
-                            label_visibility="collapsed", key="opacity_slider")
-
-    # ── FILTER DATA ───────────────────────────────────────────────────────────
-    m_nums = [ALL_MONTHS[m] for m in selected_months]
-
-    def date_filter(gdf):
-        if gdf.empty or "year" not in gdf.columns:
-            return gdf
-        return gdf[gdf["year"].isin(selected_years) & gdf["month"].isin(m_nums)].copy()
-
-    f_crest = date_filter(crest_gdf)
-    f_playa = date_filter(playa_gdf)
-    f_var   = var_gdf.copy()
-
-    wind_pct, f_wind = wind_completeness(wind_df, selected_years, selected_months)
-
-    wind_b64 = None
-    if show_wind and not f_wind.empty and wind_pct >= WIND_HIDE_PCT:
-        wind_b64 = build_wind_rose_image(f_wind)
-    elif show_wind and wind_pct < WIND_HIDE_PCT and not f_wind.empty:
-        st.warning("Wind rose hidden: data coverage below 30% for selected period.")
-
-    date_min = f_crest["date"].min() if not f_crest.empty and "date" in f_crest.columns else None
-    date_max = f_crest["date"].max() if not f_crest.empty and "date" in f_crest.columns else None
-
-    # ── 4:1 COLUMN LAYOUT ────────────────────────────────────────────────────
-    map_col, right_col = st.columns([4, 1], gap="small")
-
-    # ── MAP ──────────────────────────────────────────────────────────────────
-    with map_col:
-        folium_map = build_map(
-            crest_gdf=f_crest, var_gdf=f_var, playa_gdf=f_playa, unc_gdf=unc_gdf,
-            wind_b64=wind_b64, wind_completeness_pct=wind_pct,
-            show_crests=show_crests, show_gap_fills=show_gap_fills,
-            show_variability=show_variability, date_a=date_a, date_b=date_b,
-            show_playa=show_playa, show_wind=show_wind, show_uncertainty=show_uncertainty,
-            opacity=opacity,
-            date_min=date_min, date_max=date_max,
-        )
-
-        # Zoom-to-feature dropdown
-        dune_names = st.session_state.get("dune_names", [])
-        zoom_options = ["-- none --"] + dune_names
-        zoom_to = st.selectbox("Zoom to feature", zoom_options, label_visibility="collapsed")
-        if zoom_to != "-- none --" and not crest_gdf.empty and "dune_name" in crest_gdf.columns:
-            geoms = crest_gdf[crest_gdf["dune_name"] == zoom_to].geometry
-            if not geoms.empty:
-                b = geoms.total_bounds
-                folium_map.fit_bounds([[b[1], b[0]], [b[3], b[2]]])
-
-        map_data = st_folium(
-            folium_map, width="100%", height=590,
-            returned_objects=["last_object_clicked"],
-        )
-
-    # ── RIGHT COLUMN ─────────────────────────────────────────────────────────
-    with right_col:
-        st.markdown('<div class="right-scroll">', unsafe_allow_html=True)
-
-        # Wind coverage
-        st.markdown('<div class="right-panel-header">Wind Coverage</div>', unsafe_allow_html=True)
-        if not wind_df.empty:
-            fig_g = build_gantt_figure(wind_df, selected_years, selected_months)
-            st.pyplot(fig_g, use_container_width=True)
-            plt.close(fig_g)
-            if wind_pct < WIND_WARN_PCT:
-                st.markdown(
-                    f'<div class="warn-box">! {wind_pct*100:.0f}% coverage</div>',
-                    unsafe_allow_html=True,
-                )
-        else:
-            st.caption("No wind data loaded.")
-        
-        # Variability trend
-        st.markdown('<div class="right-panel-header">Variability Trend</div>', unsafe_allow_html=True)
-
-        if (map_data and map_data.get("last_object_clicked")
-                and show_variability and not var_gdf.empty):
-            click = map_data["last_object_clicked"]
-            lat, lon = click.get("lat"), click.get("lng")
-            if lat and lon:
-                click_pt  = Point(lon, lat)
-                var_proj  = var_gdf.to_crs("EPSG:3857")
-                click_gdf = gpd.GeoDataFrame(
-                    geometry=[click_pt], crs="EPSG:4326"
-                ).to_crs("EPSG:3857")
-                dists       = var_proj.geometry.distance(click_gdf.geometry.iloc[0])
-                nearest_pid = var_gdf.iloc[dists.idxmin()]["point_id"]
-
-                fig_ts = variability_trend_fig(var_gdf, nearest_pid)
-                st.pyplot(fig_ts, use_container_width=True)
-                plt.close(fig_ts)
-            else:
-                st.caption("Click a point on the map.")
-        else:
-            st.caption("Click a variability point on the map.")
-
-        # Uncertainty histogram
-        st.markdown('<div class="right-panel-header">Uncertainty</div>', unsafe_allow_html=True)
-        if not unc_gdf.empty and "error_m" in unc_gdf.columns:
-            fig_h = uncertainty_hist_fig(unc_gdf)
-            st.pyplot(fig_h, use_container_width=True)
-            plt.close(fig_h)
-        else:
-            st.caption("No uncertainty data.")
-
-        st.divider()
-
-        # Export
-        st.markdown('<div class="right-panel-header">Export</div>', unsafe_allow_html=True)
-        st.download_button(
-            "Download Map (HTML)",
-            data=folium_map._repr_html_(),
-            file_name="dune_map.html",
-            mime="text/html",
-            use_container_width=True,
-        )
-        if not f_crest.empty:
-            st.download_button(
-                "Download Crests (CSV)",
-                data=f_crest.drop(columns="geometry").to_csv(index=False),
-                file_name="crest_lines_filtered.csv",
-                mime="text/csv",
-                use_container_width=True,
-            )
-        else:
-            st.button("Download Crests (CSV)", disabled=True, use_container_width=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)
+    left_col, map_col, right_col = st.columns([1.2, 3.5, 1.3], gap="small")
+    render_dashboard_layout_1(left_col, map_col, right_col)
 
 
 if __name__ == "__main__":
