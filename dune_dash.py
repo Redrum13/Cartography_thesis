@@ -1222,8 +1222,8 @@ def render_feedback_form():
             expertise = st.selectbox(
                 "Cartography / GIS background",
                 ["Prefer not to say", "None / General Public",
-                 "Cartographer", "Earth Scientist",
-                 "Geologist", "GIS Secialist", "Other Academic"],
+                 "Geodesy", "Photogrammetry",
+                 "Remote Sensing", "Geoinformatics", "Cartography", "Other Academic"],
                 key="fb_expertise",
             )
         with c2:
