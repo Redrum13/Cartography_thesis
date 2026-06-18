@@ -1067,7 +1067,7 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
         dune_names = st.session_state.get("dune_names", [])
         DEFAULT_DUNE = "The Star Dune"
 
-        zoom_options = ["-- none --"] + dune_names
+        zoom_options = ["All Features"] + dune_names
         default_index = (
             zoom_options.index(DEFAULT_DUNE)
             if DEFAULT_DUNE in zoom_options else 0
@@ -1077,7 +1077,7 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             index=default_index,
             label_visibility="collapsed", key="b_zoom_select"
         )
-        if zoom_to != "-- none --" and not crest_gdf.empty and "dune_name" in crest_gdf.columns:
+        if zoom_to != "All Features" and not crest_gdf.empty and "dune_name" in crest_gdf.columns:
             geoms = crest_gdf[crest_gdf["dune_name"] == zoom_to].geometry
             if not geoms.empty:
                 b = geoms.total_bounds
