@@ -890,7 +890,6 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
 
     # ── LEFT PANEL ──────────────────────────────────────────────────────────
     with left_col:
-        st.markdown('<div class="right-panel-header">Date Range</div>', unsafe_allow_html=True)
         
         # ── PRESETS ──────────────────────────────────────────────────────────────
         st.markdown('<div class="right-panel-header">Presets</div>', unsafe_allow_html=True)
@@ -1014,7 +1013,6 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
         opacity = st.slider("Layer opacity", 0.2, 1.0, 0.75, 0.05,
                             label_visibility="collapsed", key="b_opacity_slider")
         
-        export_placeholder = st.empty()
 
     # ── FILTER DATA ───────────────────────────────────────────────────────────
 
@@ -1156,6 +1154,8 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             plt.close(fig_h)
         else:
             st.caption("No uncertainty data.")
+
+        export_placeholder = st.empty()
 
 
 # ------------------------------------------------------------------------------
