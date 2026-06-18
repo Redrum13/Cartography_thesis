@@ -1274,7 +1274,7 @@ def render_feedback_form():
 
         q2d = st.select_slider(
             "The gap fill in crest lines helps in understanding line continuity.",
-            LIKERT, value="3 – Neutral", key="fb_q2c",
+            LIKERT, value="3 – Neutral", key="fb_q2d",
         )
 
         st.divider()
