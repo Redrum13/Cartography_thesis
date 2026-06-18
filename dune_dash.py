@@ -1153,6 +1153,307 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             st.button("Download Crests (CSV)", disabled=True, use_container_width=True, key="b_download_crests_disabled")
 
 
+
+# ------------------------------------------------------------------------------
+# FEEDBACK FORM  — midterm cartographic evaluation
+# ------------------------------------------------------------------------------
+
+FEEDBACK_PATH = "feedback_log.csv"
+
+LIKERT = [
+    "1 – Strongly disagree",
+    "2 – Disagree",
+    "3 – Neutral",
+    "4 – Agree",
+    "5 – Strongly agree",
+]
+
+def _get_anon_id():
+    """Generate or retrieve a session-scoped anonymous ID."""
+    if "anon_id" not in st.session_state:
+        import random, string
+        st.session_state["anon_id"] = "".join(
+            random.choices(string.ascii_uppercase + string.digits, k=6)
+        )
+    return st.session_state["anon_id"]
+
+
+def save_feedback(record: dict):
+    df_new = pd.DataFrame([record])
+    if os.path.exists(FEEDBACK_PATH):
+        df_new.to_csv(FEEDBACK_PATH, mode="a", header=False, index=False)
+    else:
+        df_new.to_csv(FEEDBACK_PATH, mode="w", header=True, index=False)
+
+
+def render_feedback_form():
+    anon_id = _get_anon_id()
+
+    with st.expander("📋  Midterm Cartographic Evaluation — Share Your Feedback", expanded=False):
+
+        st.markdown(
+            f"""
+            <div style="background:#FDF8F0;border:1px solid #C9BA9B;border-radius:6px;
+                        padding:10px 14px;margin-bottom:12px;">
+                <p style="font-size:.82rem;color:#5C3D1E;margin:0 0 6px 0;">
+                This is a <strong>midterm evaluation</strong> of a cartographic monitoring
+                dashboard for Namib Desert star dune dynamics (MSc Cartography thesis).
+                Your feedback directly shapes the next development iteration.
+                </p>
+                <p style="font-size:.82rem;color:#5C3D1E;margin:0 0 6px 0;">
+                Responses are <strong>fully anonymous</strong> — no name or contact
+                information is collected. Takes ~3–4 minutes.
+                </p>
+                <p style="font-size:.78rem;color:#8B7A6A;margin:0;">
+                Your anonymous session ID: <code style="background:#EDE6D3;
+                padding:1px 6px;border-radius:3px;font-weight:700;
+                color:#5C3D1E;">{anon_id}</code>
+                — keep this if you want to follow up.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # ── Profile ────────────────────────────────────────────────────────
+        st.markdown("**About you** *(optional — helps contextualise responses)*")
+        c1, c2 = st.columns(2)
+        with c1:
+            expertise = st.selectbox(
+                "Cartography / GIS background",
+                ["Prefer not to say", "None / general public",
+                 "Student (undergraduate)", "Student (postgraduate)",
+                 "Professional / researcher", "Academic"],
+                key="fb_expertise",
+            )
+        with c2:
+            prior_use = st.selectbox(
+                "How familiar are you with this dashboard?",
+                ["First time seeing it", "Explored it briefly",
+                 "Used it multiple times"],
+                key="fb_prior",
+            )
+
+        st.divider()
+
+        # ── 1. Temporal encoding ───────────────────────────────────────────
+        st.markdown("**1 · Temporal Encoding**")
+        st.caption(
+            "Time is encoded via a plasma colormap (purple → yellow) across "
+            "crest lines and playa polygons."
+        )
+        q1a = st.select_slider(
+            "The color progression clearly communicates the sequence of observations over time.",
+            LIKERT, value="3 – Neutral", key="fb_q1a",
+        )
+        q1b = st.select_slider(
+            "I could tell earlier from more recent observations without consulting the legend.",
+            LIKERT, value="3 – Neutral", key="fb_q1b",
+        )
+
+        st.divider()
+
+        # ── 2. Multi-layer legibility ──────────────────────────────────────
+        st.markdown("**2 · Multi-layer Legibility & Visual Hierarchy**")
+        st.caption(
+            "The map overlays crest lines, playa polygons, GNSS uncertainty lines, "
+            "and optionally movement points simultaneously."
+        )
+        q2a = st.select_slider(
+            "I can distinguish between the different map layers without confusion.",
+            LIKERT, value="3 – Neutral", key="fb_q2a",
+        )
+        q2b = st.select_slider(
+            "The visual hierarchy (what stands out first) matches what I'd expect to be most important.",
+            LIKERT, value="3 – Neutral", key="fb_q2b",
+        )
+        q2c = st.select_slider(
+            "The legend is sufficient to interpret all map symbols.",
+            LIKERT, value="3 – Neutral", key="fb_q2c",
+        )
+
+        st.divider()
+
+        # ── 3. Interaction & presets ───────────────────────────────────────
+        st.markdown("**3 · Interaction Design**")
+        st.caption(
+            "Four preset modes filter data: Annual, Monthly, Compare (two specific dates), Custom."
+        )
+        q3a = st.select_slider(
+            "The preset modes were intuitive to use without instruction.",
+            LIKERT, value="3 – Neutral", key="fb_q3a",
+        )
+        q3b = st.select_slider(
+            "The Compare preset effectively supported understanding of dune change between dates.",
+            LIKERT, value="3 – Neutral", key="fb_q3b",
+        )
+
+        st.divider()
+
+        # ── 4. Uncertainty ─────────────────────────────────────────────────
+        st.markdown("**4 · Uncertainty Visualization**")
+        st.caption(
+            "GNSS uncertainty shown as perpendicular lines: green < 2 m, yellow 2–6 m, red > 6 m."
+        )
+        q4a = st.select_slider(
+            "The three-tier color coding for GNSS uncertainty was immediately understandable.",
+            LIKERT, value="3 – Neutral", key="fb_q4a",
+        )
+        q4b = st.select_slider(
+            "Showing uncertainty directly on the map (not just in a table) added value.",
+            LIKERT, value="3 – Neutral", key="fb_q4b",
+        )
+
+        st.divider()
+
+        # ── 5. Wind rose & Gantt ───────────────────────────────────────────
+        st.markdown("**5 · Supplementary Graphics**")
+        st.caption(
+            "A wind rose overlays the map top-right; a coverage Gantt chart "
+            "appears in the right panel."
+        )
+        q5a = st.select_slider(
+            "The wind rose enhanced my understanding of the aeolian context.",
+            LIKERT, value="3 – Neutral", key="fb_q5a",
+        )
+        q5b = st.select_slider(
+            "The wind coverage Gantt chart was useful for understanding data gaps.",
+            LIKERT, value="3 – Neutral", key="fb_q5b",
+        )
+
+        st.divider()
+
+        # ── 6. Aesthetics ──────────────────────────────────────────────────
+        st.markdown("**6 · Aesthetics & Domain Suitability**")
+        st.caption(
+            "Earthy brown / sand palette chosen to reflect the Namib Desert environment."
+        )
+        q6a = st.select_slider(
+            "The color palette felt appropriate for a desert geomorphology tool.",
+            LIKERT, value="3 – Neutral", key="fb_q6a",
+        )
+        q6b = st.select_slider(
+            "The visual design did not distract from interpreting the scientific data.",
+            LIKERT, value="3 – Neutral", key="fb_q6b",
+        )
+
+        st.divider()
+
+        # ── 7. Overall ─────────────────────────────────────────────────────
+        st.markdown("**7 · Overall Assessment**")
+        q7a = st.select_slider(
+            "The dashboard effectively communicates how star dune morphology changed over 2017–2026.",
+            LIKERT, value="3 – Neutral", key="fb_q7a",
+        )
+        q7b = st.select_slider(
+            "Compared to raw GeoJSON/CSV files, this dashboard represents a meaningful advancement in data accessibility.",
+            LIKERT, value="3 – Neutral", key="fb_q7b",
+        )
+
+        st.divider()
+
+        # ── 8. What's missing / broken (midterm focus) ─────────────────────
+        st.markdown("**8 · Midterm Priorities** *(most important for your feedback)*")
+        st.caption(
+            "This is a midterm check — your input will directly shape what gets "
+            "built or changed next."
+        )
+
+        missing = st.multiselect(
+            "Which of the following would most improve the dashboard? *(select all that apply)*",
+            [
+                "Clearer temporal colormap / legend",
+                "Better layer toggling / layer order control",
+                "More intuitive preset modes",
+                "Stronger uncertainty communication",
+                "Improved wind data integration",
+                "Mobile / smaller screen support",
+                "Faster load times",
+                "Additional export formats",
+                "More context / explanatory text on the map",
+                "A time-slider / animation feature",
+                "Something else (describe below)",
+            ],
+            key="fb_missing",
+        )
+
+        c1, c2 = st.columns(2)
+        with c1:
+            improvement = st.text_area(
+                "What would you change or add next?",
+                height=90, key="fb_improve",
+                placeholder="e.g. the plasma ramp is hard to read on satellite imagery...",
+            )
+        with c2:
+            strength = st.text_area(
+                "What is working well and should be kept?",
+                height=90, key="fb_strength",
+                placeholder="e.g. the Compare preset made change detection very intuitive...",
+            )
+
+        st.markdown("")
+        submitted = st.button("Submit feedback", type="primary", key="fb_submit")
+
+        if submitted:
+            if "fb_submitted" in st.session_state:
+                st.info("You have already submitted feedback this session. Thank you!")
+            else:
+                record = {
+                    "timestamp": pd.Timestamp.now().isoformat(),
+                    "anon_id": anon_id,
+                    "expertise": expertise,
+                    "prior_use": prior_use,
+                    "temporal_colormap_order":   q1a,
+                    "temporal_no_legend_needed": q1b,
+                    "layer_distinction":         q2a,
+                    "visual_hierarchy":          q2b,
+                    "legend_sufficiency":        q2c,
+                    "preset_intuitive":          q3a,
+                    "compare_effective":         q3b,
+                    "uncertainty_color_clear":   q4a,
+                    "uncertainty_on_map_value":  q4b,
+                    "windrose_contextual":       q5a,
+                    "gantt_gap_useful":          q5b,
+                    "palette_appropriate":       q6a,
+                    "design_not_distracting":    q6b,
+                    "overall_change_communication": q7a,
+                    "advancement_vs_raw_data":   q7b,
+                    "midterm_priorities":        "; ".join(missing),
+                    "improvement_comment":       improvement,
+                    "strength_comment":          strength,
+                }
+                save_feedback(record)
+                st.session_state["fb_submitted"] = True
+                st.success(f"Thank you — response recorded. Your ID: **{anon_id}**")
+                st.balloons()
+
+
+# ------------------------------------------------------------------------------
+# ADMIN PANEL  — password-gated, bottom of page
+# ------------------------------------------------------------------------------
+
+def render_admin_panel():
+    with st.expander("🔒  Admin — View & Export Feedback", expanded=False):
+        pwd = st.text_input("Password", type="password", key="admin_pwd")
+        correct = st.secrets.get("ADMIN_PASSWORD", "admin")  # fallback for local dev
+
+        if pwd == correct:
+            if os.path.exists(FEEDBACK_PATH):
+                df = pd.read_csv(FEEDBACK_PATH)
+                st.success(f"{len(df)} response(s) collected.")
+                st.dataframe(df, use_container_width=True)
+                st.download_button(
+                    "⬇  Download feedback_log.csv",
+                    data=df.to_csv(index=False),
+                    file_name="feedback_log.csv",
+                    mime="text/csv",
+                    key="admin_download",
+                )
+            else:
+                st.info("No responses yet.")
+        elif pwd:
+            st.error("Incorrect password.")
+
 # ------------------------------------------------------------------------------
 # MAIN APP
 # ------------------------------------------------------------------------------
@@ -1173,6 +1474,11 @@ def main():
 
     left_col, map_col, right_col = st.columns([1.2, 3.5, 1.3], gap="small")
     render_dashboard_layout_1(left_col, map_col, right_col)
+
+    st.divider()
+    render_feedback_form()
+    st.divider()
+    render_admin_panel()
 
 
 if __name__ == "__main__":
