@@ -1033,7 +1033,7 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             f_playa = date_filter(playa_gdf)
             f_var = var_gdf.copy()
 
-    wind_pct, f_wind = wind_completeness(wind_df, selected_years, selected_months)
+            wind_pct, f_wind = wind_completeness(wind_df, selected_years, selected_months)
 
     wind_b64 = None
     if show_wind and not f_wind.empty and wind_pct >= WIND_HIDE_PCT:
