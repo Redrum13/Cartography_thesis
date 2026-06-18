@@ -705,7 +705,7 @@ def build_map(
                 <rect x="0" y="0" width="24" height="10" fill="#C49A6C" opacity="0.5"
                       stroke="#C49A6C" stroke-width="1" rx="2"/>
             </svg>
-            <span>Playa polygon</span>
+            <span>Playa (Highest Purity)</span>
         </div>""" if show_playa else ""
         sections.append(f"""
         <div class="ls">
