@@ -1207,19 +1207,21 @@ def save_feedback(record: dict):
 def render_feedback_form():
     anon_id = _get_anon_id()
 
-    with st.expander("  Midterm Cartographic Evaluation — Share Your Feedback", expanded=False):
+    st.markdown('<div class="right-panel-header">FEEDBACK</div>', unsafe_allow_html=True)
+
+    with st.expander("  Cartographic Evaluation — Share Your Feedback", expanded=False):
 
         st.markdown(
             f"""
             <div style="background:#FDF8F0;border:1px solid #C9BA9B;border-radius:6px;
                         padding:10px 14px;margin-bottom:12px;">
                 <p style="font-size:.82rem;color:#5C3D1E;margin:0 0 6px 0;">
-                This is a <strong>midterm evaluation</strong> of a cartographic monitoring
-                dashboard for Namib Desert star dune dynamics (MSc Cartography thesis).
+                This is an <strong>evaluation</strong> of a cartographic monitoring
+                dashboard prototype for Namib Desert star dune dynamics (for MSc Cartography thesis).
                 Your feedback directly shapes the next development iteration.
                 </p>
                 <p style="font-size:.82rem;color:#5C3D1E;margin:0 0 6px 0;">
-                Responses are <strong>fully anonymous</strong> — no name or contact
+                Responses are <strong>fully anonymous</strong>, so no name or contact
                 information is collected. Takes ~3–4 minutes.
                 </p>
                 <p style="font-size:.78rem;color:#8B7A6A;margin:0;">
@@ -1495,7 +1497,7 @@ def main():
             <div style="font-family:'Segoe UI',sans-serif;font-size:.83rem;
                         color:#3B2F1E;line-height:1.7;">
 
-            <p>This dashboard monitors the aelian landscape near Sossusvlei in the
+            <p>This dashboard monitors the aeolian landscape near Sossusvlei in the
               Namib Desert between 2017 and 2026, covering the active dune season
             (May–August) each year.</p>
 
@@ -1536,10 +1538,7 @@ def main():
 
     left_col, map_col, right_col = st.columns([1.2, 3.5, 1.3], gap="small")
     render_dashboard_layout_1(left_col, map_col, right_col)
-
-    st.divider()
     render_feedback_form()
-    st.divider()
     render_admin_panel()
 
 
