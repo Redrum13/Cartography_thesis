@@ -1316,7 +1316,7 @@ def render_feedback_form():
             "Uncertainty shown as perpendicular lines: green < 2 m, yellow 2–6 m, red > 6 m."
         )
         q4a = st.select_slider(
-            "The three-tier color coding for distance between Satellite image derived crest and GNSS points was immediately understandable.",
+            "The three-tier color coding for distance between satellite image derived crest and GNSS points was immediately understandable.",
             LIKERT, value="3 – Neutral", key="fb_q4a",
         )
         q4b = st.select_slider(
