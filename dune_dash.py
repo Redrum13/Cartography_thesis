@@ -1007,7 +1007,7 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
         show_playa = st.checkbox("Playa (Highest Purity)", value=True, key="b_show_playa")
         show_wind = st.checkbox("Wind rose overlay", value=True, key="b_show_wind")
         show_uncertainty = st.checkbox("Uncertainty lines", value=True, key="b_show_uncertainty")
-        show_base_imagery = st.checkbox("Base Imagery (PNG)", value=True, key="b_show_base_imagery")
+        show_base_imagery = st.checkbox("Base Imagery (Sentinel-2)", value=True, key="b_show_base_imagery")
 
         st.markdown('<div class="right-panel-header">Opacity</div>', unsafe_allow_html=True)
         opacity = st.slider("Layer opacity", 0.2, 1.0, 0.75, 0.05,
@@ -1170,7 +1170,6 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
 # FEEDBACK FORM  — midterm cartographic evaluation
 # ------------------------------------------------------------------------------
 
-FEEDBACK_PATH = "feedback_log.csv"
 
 LIKERT = [
     "1 – Strongly disagree",
@@ -1189,13 +1188,20 @@ def _get_anon_id():
         )
     return st.session_state["anon_id"]
 
+def get_feedback_path():
+    try:
+        audience = st.secrets["AUDIENCE"]
+    except (KeyError, FileNotFoundError):
+        audience = "general"  # local dev fallback
+    return f"feedback_log_{audience}.csv"
 
 def save_feedback(record: dict):
+    path = get_feedback_path()
     df_new = pd.DataFrame([record])
-    if os.path.exists(FEEDBACK_PATH):
-        df_new.to_csv(FEEDBACK_PATH, mode="a", header=False, index=False)
+    if os.path.exists(path):
+        df_new.to_csv(path, mode="a", header=False, index=False)
     else:
-        df_new.to_csv(FEEDBACK_PATH, mode="w", header=True, index=False)
+        df_new.to_csv(path, mode="w", header=True, index=False)
 
 
 def render_feedback_form():
@@ -1284,11 +1290,6 @@ def render_feedback_form():
             LIKERT, value="3 – Neutral", key="fb_q2c",
         )
 
-        q2d = st.select_slider(
-            "The gap fill in crest lines helps in understanding line continuity despite data gaps.",
-            LIKERT, value="3 – Neutral", key="fb_q2d",
-        )
-
         st.divider()
 
         # ── 3. Interaction & presets ───────────────────────────────────────
@@ -1310,10 +1311,10 @@ def render_feedback_form():
         # ── 4. Uncertainty ─────────────────────────────────────────────────
         st.markdown("**4 · Uncertainty Visualization**")
         st.caption(
-            "GNSS uncertainty shown as perpendicular lines: green < 2 m, yellow 2–6 m, red > 6 m."
+            "Uncertainty shown as perpendicular lines: green < 2 m, yellow 2–6 m, red > 6 m."
         )
         q4a = st.select_slider(
-            "The three-tier color coding for GNSS uncertainty was immediately understandable.",
+            "The three-tier color coding for distance between Satellite image derived crest and GNSS points was immediately understandable.",
             LIKERT, value="3 – Neutral", key="fb_q4a",
         )
         q4b = st.select_slider(
@@ -1359,7 +1360,7 @@ def render_feedback_form():
         # ── 7. Overall ─────────────────────────────────────────────────────
         st.markdown("**7 · Overall Assessment**")
         q7a = st.select_slider(
-            "The dashboard effectively communicates how star dune morphology changed over 2017–2026.",
+            "The dashboard effectively communicates how aeolian landscape changed over 2017–2026.",
             LIKERT, value="3 – Neutral", key="fb_q7a",
         )
         q7b = st.select_slider(
@@ -1370,9 +1371,9 @@ def render_feedback_form():
         st.divider()
 
         # ── 8. What's missing / broken (midterm focus) ─────────────────────
-        st.markdown("**8 · Midterm Priorities** *(most important for your feedback)*")
+        st.markdown("**8 · Other Suggestions**")
         st.caption(
-            "This is a midterm check — your input will directly shape what gets "
+            "Your valuable input will directly shape what gets "
             "built or changed next."
         )
 
@@ -1425,7 +1426,6 @@ def render_feedback_form():
                     "layer_distinction":         q2a,
                     "visual_hierarchy":          q2b,
                     "legend_sufficiency":        q2c,
-                    "gap_fill_continuity":       q2d,
                     "preset_intuitive":          q3a,
                     "compare_effective":         q3b,
                     "uncertainty_color_clear":   q4a,
@@ -1456,14 +1456,15 @@ def render_admin_panel():
         correct = st.secrets.get("ADMIN_PASSWORD", "admin")  # fallback for local dev
 
         if pwd == correct:
-            if os.path.exists(FEEDBACK_PATH):
-                df = pd.read_csv(FEEDBACK_PATH)
+            path = get_feedback_path()
+            if os.path.exists(path):
+                df = pd.read_csv(path)
                 st.success(f"{len(df)} response(s) collected.")
                 st.dataframe(df, use_container_width=True)
                 st.download_button(
                     "⬇  Download feedback_log.csv",
                     data=df.to_csv(index=False),
-                    file_name="feedback_log.csv",
+                    file_name=path,
                     mime="text/csv",
                     key="admin_download",
                 )
@@ -1483,11 +1484,54 @@ def main():
         unsafe_allow_html=True,
     )
     st.markdown(
-        '<h1 style="margin:0 0 2px 0;color:#5C3D1E;">Star Dune Dynamics</h1>'
-        '<p style="color:#8B7A6A;font-size:.78rem;margin:0 0 4px 0;'
-        'font-family:monospace;">Aeolian crest monitoring  Namib  2017-2026  May-Aug</p>',
-        unsafe_allow_html=True,
+    '<h1 style="margin:0 0 2px 0;color:#5C3D1E;">Star Dune Dynamics</h1>'
+    '<p style="color:#8B7A6A;font-size:.78rem;margin:0 0 8px 0;'
+    'font-family:monospace;">Aeolian crest monitoring  ·  Namib Desert  ·  2017–2026  ·  May–Aug</p>',
+    unsafe_allow_html=True,
     )
+
+    with st.expander("About Star Dune Dynamics Dashboard", expanded=False):
+        st.markdown(
+            """
+            <div style="font-family:'Segoe UI',sans-serif;font-size:.83rem;
+                        color:#3B2F1E;line-height:1.7;">
+
+            <p>This dashboard monitors the aelian landscape near Sossusvlei in the
+              Namib Desert between 2017 and 2026, covering the active dune season
+            (May–August) each year.</p>
+
+            <p><strong style="color:#5C3D1E;">Data sources</strong></p>
+            <ul style="margin:0 0 10px 0;padding-left:18px;">
+                <li><strong>Crest lines</strong> — extracted from Sentinel-2 multispectral imagery
+                using automated skeletonization and canny edge-detection, with gap-filling applied
+                where weak gradient magnitude interrupted acquisition.</li>
+                <li><strong>Playa polygons</strong> — delineated from Sentinel-2 using a salinity index
+                (SI-1 = √(Blue * Red)), retaining only pixels above the 97th percentile of SI-1 values
+                per scene. This high-purity threshold isolates the brightest, most saline playa surface,
+                excluding mixed or transitional pixels at the playa margin.</li>
+                <li><strong>Wind data</strong> — daily wind speed and direction records from
+                Dieprivier weather station, providing context for dune activity patterns.</li>
+                <li><strong>GNSS / reference crests</strong> — field-surveyed GNSS points for
+                <em>The Star Dune</em>; manually digitized reference crests for
+                <em>Big Mommy Dune</em> and <em>Inverted Y Dune</em>.</li>
+            </ul>
+
+            <p><strong style="color:#5C3D1E;">A note on uncertainty</strong></p>
+            <p>In this dashboard, <em>uncertainty</em> refers to the perpendicular distance between
+            a satellite-derived crest line and its corresponding reference position — either a
+            field-surveyed GNSS point (<em>The Star Dune</em>) or a manually digitized crest
+            (<em>Big Mommy Dune</em>, <em>Inverted Y Dune</em>). This metric captures the combined
+            effect of image resolution, atmospheric conditions, and extraction method error.
+            Lines are colour-coded: <span style="color:#31A857;font-weight:700;">green</span> &lt; 2 m,
+            <span style="color:#B8A800;font-weight:700;">yellow</span> 2–6 m,
+            <span style="color:#C7400F;font-weight:700;">red</span> &gt; 6 m.</p>
+
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
     st.divider()
 
     left_col, map_col, right_col = st.columns([1.2, 3.5, 1.3], gap="small")
