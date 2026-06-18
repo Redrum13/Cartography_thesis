@@ -1502,23 +1502,23 @@ def main():
 
             <p><strong style="color:#5C3D1E;">Data sources</strong></p>
             <ul style="margin:0 0 10px 0;padding-left:18px;">
-                <li><strong>Crest lines</strong> — extracted from Sentinel-2 multispectral imagery
+                <li><strong>Crest lines:</strong> extracted from Sentinel-2 multispectral imagery
                 using automated skeletonization and canny edge-detection, with gap-filling applied
                 where weak gradient magnitude interrupted acquisition.</li>
-                <li><strong>Playa polygons</strong> — delineated from Sentinel-2 using a salinity index
+                <li><strong>Playa polygons:</strong> delineated from Sentinel-2 using a salinity index
                 (SI-1 = √(Blue * Red)), retaining only pixels above the 97th percentile of SI-1 values
                 per scene. This high-purity threshold isolates the brightest, most saline playa surface,
                 excluding mixed or transitional pixels at the playa margin.</li>
-                <li><strong>Wind data</strong> — daily wind speed and direction records from
+                <li><strong>Wind data:</strong> daily wind speed and direction records from
                 Dieprivier weather station, providing context for dune activity patterns.</li>
-                <li><strong>GNSS / reference crests</strong> — field-surveyed GNSS points for
+                <li><strong>GNSS / reference crests:</strong> field-surveyed GNSS points for
                 <em>The Star Dune</em>; manually digitized reference crests for
                 <em>Big Mommy Dune</em> and <em>Inverted Y Dune</em>.</li>
             </ul>
 
             <p><strong style="color:#5C3D1E;">A note on uncertainty</strong></p>
             <p>In this dashboard, <em>uncertainty</em> refers to the perpendicular distance between
-            a satellite-derived crest line and its corresponding reference position — either a
+            a satellite-derived crest line and its corresponding reference position based on either a
             field-surveyed GNSS point (<em>The Star Dune</em>) or a manually digitized crest
             (<em>Big Mommy Dune</em>, <em>Inverted Y Dune</em>). This metric captures the combined
             effect of image resolution, atmospheric conditions, and extraction method error.
