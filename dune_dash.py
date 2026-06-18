@@ -1001,8 +1001,8 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
 
         st.markdown('<div class="right-panel-header">Layers</div>', unsafe_allow_html=True)
         show_crests = st.checkbox("Crest lines", value=True, key="b_show_crests")
-        show_gap_fills = st.checkbox("  Gap fills", value=True, disabled=not show_crests, key="b_show_gap_fills")
-        show_movement = st.checkbox("Crest Movement", value=True, disabled=disable_movement, key="b_show_movement")
+        show_gap_fills = st.checkbox("  Gap fills", value=False, disabled=not show_crests, key="b_show_gap_fills")
+        show_movement = st.checkbox("Crest Movement", value=False, disabled=disable_movement, key="b_show_movement")
         if disable_movement:
             st.caption("Crest movement only available in Compare presets.")
         show_playa = st.checkbox("Playa polygons", value=True, key="b_show_playa")
