@@ -961,6 +961,13 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             # For crest data: only the two specific dates
             selected_years = list(set([date_a.year, date_b.year]))
             selected_months = list(set([date_a.strftime("%B"), date_b.strftime("%B")]))
+
+            # For Compare: use the actual years and months from both dates
+            selected_years = [date_a.year, date_b.year]
+            selected_months = [date_a.strftime("%B"), date_b.strftime("%B")]
+            
+            # For wind data
+            wind_pct, f_wind = wind_completeness(wind_df, selected_years, selected_months)
             
         else:  # Custom
             # Full control: year range + month selection
@@ -1013,9 +1020,6 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             f_playa = playa_gdf[playa_gdf["date"].isin([date_a, date_b])].copy()
             f_var = var_gdf[var_gdf["date"].isin([date_a, date_b])].copy()
 
-            selected_years = list(set([date_a.year, date_b.year]))
-            selected_months = list(set([date_a.strftime("%B"), date_b.strftime("%B")]))
-            wind_pct, f_wind = wind_completeness(wind_df, selected_years, selected_months)
         else:
             m_nums = [ALL_MONTHS[m] for m in selected_months]
             
