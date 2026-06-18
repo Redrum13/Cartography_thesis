@@ -695,8 +695,8 @@ def build_map(
     sections = []
 
     if show_crests or show_playa:
-        early = date_min.strftime("%Y-%B") if date_min else "Early"
-        late  = date_max.strftime("%Y-%B") if date_max else "Late"
+        early = date_min.strftime("%Y-%d") if date_min else "Early"
+        late  = date_max.strftime("%Y-%d") if date_max else "Late"
         playa_row = """
         <div class="lr">
             <svg width="24" height="10">
