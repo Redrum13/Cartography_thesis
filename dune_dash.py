@@ -1065,8 +1065,18 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
         # Zoom-to-feature dropdown
         st.markdown('<div class="right-panel-header">Zoom to Feature</div>', unsafe_allow_html=True)
         dune_names = st.session_state.get("dune_names", [])
+        DEFAULT_DUNE = "The Star Dune"
+
         zoom_options = ["-- none --"] + dune_names
-        zoom_to = st.selectbox("Zoom to feature", zoom_options, label_visibility="collapsed", key="b_zoom_select")
+        default_index = (
+            zoom_options.index(DEFAULT_DUNE)
+            if DEFAULT_DUNE in zoom_options else 0
+        )
+        zoom_to = st.selectbox(
+            "Zoom to feature", zoom_options,
+            index=default_index,
+            label_visibility="collapsed", key="b_zoom_select"
+        )
         if zoom_to != "-- none --" and not crest_gdf.empty and "dune_name" in crest_gdf.columns:
             geoms = crest_gdf[crest_gdf["dune_name"] == zoom_to].geometry
             if not geoms.empty:
