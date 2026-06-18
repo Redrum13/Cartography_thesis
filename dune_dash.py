@@ -349,7 +349,7 @@ def load_movement_points():
     return gpd.GeoDataFrame(df_long, geometry="geometry", crs="EPSG:4326")
 
 
-@st.cache_data(show_spinner="Loading playa polygons ...")
+@st.cache_data(show_spinner="Loading playa (Highest Purity) ...")
 def load_playa_polygons():
     path = "main_data/merged_playa.geojson"
     gdf = gpd.read_file(path).to_crs("EPSG:4326")
@@ -869,7 +869,7 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
 
     crest_gdf = safe_load(load_crest_lines, "crest lines")
     var_gdf   = safe_load(load_movement_points, "movement points")
-    playa_gdf = safe_load(load_playa_polygons, "playa polygons")
+    playa_gdf = safe_load(load_playa_polygons, "playa (Highest Purity)")
     unc_gdf   = safe_load(load_uncertainty_lines, "uncertainty lines")
 
     try:
@@ -1004,7 +1004,7 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
         show_movement = st.checkbox("Crest Movement", value=False, disabled=disable_movement, key="b_show_movement")
         if disable_movement:
             st.caption("Crest movement only available in Compare presets.")
-        show_playa = st.checkbox("Playa polygons", value=True, key="b_show_playa")
+        show_playa = st.checkbox("Playa (Highest Purity)", value=True, key="b_show_playa")
         show_wind = st.checkbox("Wind rose overlay", value=True, key="b_show_wind")
         show_uncertainty = st.checkbox("Uncertainty lines", value=True, key="b_show_uncertainty")
         show_base_imagery = st.checkbox("Base Imagery (PNG)", value=True, key="b_show_base_imagery")
@@ -1252,7 +1252,7 @@ def render_feedback_form():
         st.markdown("**1 · Temporal Encoding**")
         st.caption(
             "Time is encoded via a plasma colormap (purple → yellow) across "
-            "crest lines and playa polygons."
+            "crest lines and playa (Highest Purity)."
         )
         q1a = st.select_slider(
             "The color progression clearly communicates the sequence of observations over time.",
@@ -1268,7 +1268,7 @@ def render_feedback_form():
         # ── 2. Multi-layer legibility ──────────────────────────────────────
         st.markdown("**2 · Multi-layer Legibility & Visual Hierarchy**")
         st.caption(
-            "The map overlays crest lines, playa polygons, GNSS uncertainty lines, "
+            "The map overlays crest lines, playa (Highest Purity), GNSS uncertainty lines, "
             "and optionally movement points simultaneously."
         )
         q2a = st.select_slider(
