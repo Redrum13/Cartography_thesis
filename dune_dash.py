@@ -1189,7 +1189,7 @@ def save_feedback(record: dict):
 def render_feedback_form():
     anon_id = _get_anon_id()
 
-    with st.expander("📋  Midterm Cartographic Evaluation — Share Your Feedback", expanded=False):
+    with st.expander("  Midterm Cartographic Evaluation — Share Your Feedback", expanded=False):
 
         st.markdown(
             f"""
@@ -1272,6 +1272,11 @@ def render_feedback_form():
             LIKERT, value="3 – Neutral", key="fb_q2c",
         )
 
+        q2d = st.select_slider(
+            "The gap fill in crest lines helps in understanding line continuity.",
+            LIKERT, value="3 – Neutral", key="fb_q2c",
+        )
+
         st.divider()
 
         # ── 3. Interaction & presets ───────────────────────────────────────
@@ -1313,7 +1318,7 @@ def render_feedback_form():
             "appears in the right panel."
         )
         q5a = st.select_slider(
-            "The wind rose enhanced my understanding of the aeolian context.",
+            "The wind rose enhanced my understanding of the environmental context.",
             LIKERT, value="3 – Neutral", key="fb_q5a",
         )
         q5b = st.select_slider(
@@ -1346,7 +1351,7 @@ def render_feedback_form():
             LIKERT, value="3 – Neutral", key="fb_q7a",
         )
         q7b = st.select_slider(
-            "Compared to raw GeoJSON/CSV files, this dashboard represents a meaningful advancement in data accessibility.",
+            "Compared to raw GeoJSON/CSV files, this dashboard represents a meaningful advancement in data visualization.",
             LIKERT, value="3 – Neutral", key="fb_q7b",
         )
 
@@ -1392,7 +1397,7 @@ def render_feedback_form():
             )
 
         st.markdown("")
-        submitted = st.button("Submit feedback", type="primary", key="fb_submit")
+        submitted = st.button("Submit feedback", type="secondary", key="fb_submit")
 
         if submitted:
             if "fb_submitted" in st.session_state:
@@ -1408,6 +1413,7 @@ def render_feedback_form():
                     "layer_distinction":         q2a,
                     "visual_hierarchy":          q2b,
                     "legend_sufficiency":        q2c,
+                    "gap_fill_continuity":       q2d,
                     "preset_intuitive":          q3a,
                     "compare_effective":         q3b,
                     "uncertainty_color_clear":   q4a,
@@ -1433,7 +1439,7 @@ def render_feedback_form():
 # ------------------------------------------------------------------------------
 
 def render_admin_panel():
-    with st.expander("🔒  Admin — View & Export Feedback", expanded=False):
+    with st.expander(" Admin — View & Export Feedback", expanded=False):
         pwd = st.text_input("Password", type="password", key="admin_pwd")
         correct = st.secrets.get("ADMIN_PASSWORD", "admin")  # fallback for local dev
 
