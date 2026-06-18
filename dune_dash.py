@@ -1130,7 +1130,6 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
         else:
             st.caption("No uncertainty data.")
 
-        st.divider()
         st.markdown('<div class="right-panel-header">Export</div>', unsafe_allow_html=True)
 
         st.download_button(
