@@ -584,7 +584,7 @@ def build_map(
                 locations=[[lat, lon] for lon, lat in coords],
                 color=c,
                 weight=2,
-                opacity= 0.5,
+                opacity= 0.3,
                 tooltip=folium.Tooltip(
                     f"<b>GNSS Uncertainty</b><br>Error: {err:.2f} m"
                 ),
