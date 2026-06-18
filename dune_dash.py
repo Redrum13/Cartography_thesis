@@ -885,8 +885,6 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
         )
     date_a = None
     date_b = None
-    wind_start = None
-    wind_end = None
 
     # ── LEFT PANEL ──────────────────────────────────────────────────────────
     with left_col:
@@ -964,13 +962,6 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             selected_years = list(set([date_a.year, date_b.year]))
             selected_months = list(set([date_a.strftime("%B"), date_b.strftime("%B")]))
             
-            # For wind data: use the full range between dates
-            wind_start = min(date_a, date_b)
-            wind_end = max(date_a, date_b)
-            gantt_years = list(range(wind_start.year, wind_end.year + 1))
-            gantt_months = MONTH_NAMES
-            wind_pct, f_wind = wind_completeness(wind_df, gantt_years, gantt_months)
-            
         else:  # Custom
             # Full control: year range + month selection
             year_range = st.slider(
@@ -1021,6 +1012,10 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             f_crest = crest_gdf[crest_gdf["date"].isin([date_a, date_b])].copy()
             f_playa = playa_gdf[playa_gdf["date"].isin([date_a, date_b])].copy()
             f_var = var_gdf[var_gdf["date"].isin([date_a, date_b])].copy()
+
+            selected_years = list(set([date_a.year, date_b.year]))
+            selected_months = list(set([date_a.strftime("%B"), date_b.strftime("%B")]))
+            wind_pct, f_wind = wind_completeness(wind_df, selected_years, selected_months)
         else:
             m_nums = [ALL_MONTHS[m] for m in selected_months]
             
@@ -1119,7 +1114,7 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             else:
                 st.caption("Click a point on the map.")
         else:
-            st.caption("Click a movement point on the map.")
+            st.caption("Click a movement point on the map. (Only available in Compare preset)")
 
         # Uncertainty histogram
         st.markdown('<div class="right-panel-header">Uncertainty</div>', unsafe_allow_html=True)
