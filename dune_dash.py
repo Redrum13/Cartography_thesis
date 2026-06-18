@@ -1490,8 +1490,7 @@ def main():
     unsafe_allow_html=True,
     )
 
-    with st.expander("About Star Dune Dynamics Dashboard", expanded=False):
-        st.markdown(
+    st.markdown(
             """
             <div style="font-family:'Segoe UI',sans-serif;font-size:.83rem;
                         color:#3B2F1E;line-height:1.7;">
@@ -1502,6 +1501,7 @@ def main():
 
             <p><strong style="color:#5C3D1E;">Data sources</strong></p>
             <ul style="margin:0 0 10px 0;padding-left:18px;">
+                <li><strong>Base Imagery:</strong> from Sentinel-2 multispectral imagery.</li>
                 <li><strong>Crest lines:</strong> extracted from Sentinel-2 multispectral imagery
                 using automated skeletonization and canny edge-detection, with gap-filling applied
                 where weak gradient magnitude interrupted acquisition.</li>
