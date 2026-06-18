@@ -567,7 +567,7 @@ def build_map(
             folium.raster_layers.ImageOverlay(
                 image=img_array,
                 bounds=[[bounds["bottom"], bounds["left"]], [bounds["top"], bounds["right"]]],
-                opacity=opacity,
+                opacity=0.9,
                 name="Base Imagery",
                 overlay=True,
                 control=True
