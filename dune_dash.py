@@ -478,7 +478,7 @@ def build_wind_rose_image(wind_df):
            normed=True, opening=0.8, edgecolor=MPL_GRID,
            cmap=plt.cm.YlOrBr, bins=np.arange(0, 12, 2))
     ax.set_facecolor(MPL_BG)
-    ax.tick_params(colors=MPL_FG, labelsize=6)
+    ax.tick_params(colors=MPL_FG, labelsize=8)
     fig.patch.set_alpha(1)
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=110, bbox_inches="tight",
@@ -680,7 +680,7 @@ def build_map(
                       margin-bottom:3px;letter-spacing:.06em;">WIND ROSE</div>
           <div style="font-size:8px;color:#5C3D1E;font-family:Georgia,serif;
                       margin-bottom:3px;letter-spacing:.06em;">Dieprivier station <br> (~ 95km towords NE)</div>
-          <img src="data:image/png;base64,{wind_b64}" width="130"/>
+          <img src="data:image/png;base64,{wind_b64}" width="150"/>
           <div style="margin-top:4px;font-size:8px;color:#5C3D1E;font-weight:600;">Wind speed (m/s)</div>
           <div style="display:flex;align-items:center;margin-top:2px;gap:2px;">
             <span style="font-size:7px;color:#5C3D1E;">0</span>
