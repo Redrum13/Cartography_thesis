@@ -8,3 +8,5 @@ matplotlib
 shapely
 windrose
 pillow
+gspread
+google-auth
