@@ -1229,32 +1229,36 @@ def save_feedback(record: dict):
             df_new.to_csv(path, mode="w", header=True, index=False)
 
 
-def render_admin_panel():
-    with st.expander("Admin — View & Export Feedback", expanded=False):
-        pwd = st.text_input("Password", type="password", key="admin_pwd")
-        correct = st.secrets.get("ADMIN_PASSWORD", "admin")
+def render_feedback_form():
+    anon_id = _get_anon_id()
 
-        if pwd == correct:
-            try:
-                sheet = get_gsheet()
-                data = sheet.get_all_records()
-                if data:
-                    df = pd.DataFrame(data)
-                    st.success(f"{len(df)} response(s) collected.")
-                    st.dataframe(df, use_container_width=True)
-                    st.download_button(
-                        "⬇ Download feedback_log.csv",
-                        data=df.to_csv(index=False),
-                        file_name="feedback_log.csv",
-                        mime="text/csv",
-                        key="admin_download",
-                    )
-                else:
-                    st.info("No responses yet.")
-            except Exception as e:
-                st.error(f"Could not load from Google Sheets: {e}")
-        elif pwd:
-            st.error("Incorrect password.")
+    st.markdown('<div class="right-panel-header">FEEDBACK</div>', unsafe_allow_html=True)
+
+    with st.expander("  Cartographic Evaluation — Share Your Feedback", expanded=False):
+
+        st.markdown(
+            f"""
+            <div style="background:#FDF8F0;border:1px solid #C9BA9B;border-radius:6px;
+                        padding:10px 14px;margin-bottom:12px;">
+                <p style="font-size:.82rem;color:#5C3D1E;margin:0 0 6px 0;">
+                This is an <strong>evaluation</strong> of a cartographic monitoring
+                dashboard prototype for Namib Desert star dune dynamics (for MSc Cartography thesis).
+                Your feedback directly shapes the next development iteration.
+                </p>
+                <p style="font-size:.82rem;color:#5C3D1E;margin:0 0 6px 0;">
+                Responses are <strong>fully anonymous</strong>, so no name or contact
+                information is collected. Takes ~3–4 minutes.
+                </p>
+                <p style="font-size:.78rem;color:#8B7A6A;margin:0;">
+                Your anonymous session ID: <code style="background:#EDE6D3;
+                padding:1px 6px;border-radius:3px;font-weight:700;
+                color:#5C3D1E;">{anon_id}</code>
+                — keep this if you want to follow up.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         # ── Profile ────────────────────────────────────────────────────────
         st.markdown("**About you** *(optional — helps contextualise responses)*")
@@ -1474,25 +1478,29 @@ def render_admin_panel():
 # ------------------------------------------------------------------------------
 
 def render_admin_panel():
-    with st.expander(" Admin — View & Export Feedback", expanded=False):
+    with st.expander("Admin — View & Export Feedback", expanded=False):
         pwd = st.text_input("Password", type="password", key="admin_pwd")
-        correct = st.secrets.get("ADMIN_PASSWORD", "admin")  # fallback for local dev
+        correct = st.secrets.get("ADMIN_PASSWORD", "admin")
 
         if pwd == correct:
-            path = get_feedback_path()
-            if os.path.exists(path):
-                df = pd.read_csv(path)
-                st.success(f"{len(df)} response(s) collected.")
-                st.dataframe(df, use_container_width=True)
-                st.download_button(
-                    "⬇  Download feedback_log.csv",
-                    data=df.to_csv(index=False),
-                    file_name=path,
-                    mime="text/csv",
-                    key="admin_download",
-                )
-            else:
-                st.info("No responses yet.")
+            try:
+                sheet = get_gsheet()
+                data = sheet.get_all_records()
+                if data:
+                    df = pd.DataFrame(data)
+                    st.success(f"{len(df)} response(s) collected.")
+                    st.dataframe(df, use_container_width=True)
+                    st.download_button(
+                        "⬇ Download feedback_log.csv",
+                        data=df.to_csv(index=False),
+                        file_name="feedback_log.csv",
+                        mime="text/csv",
+                        key="admin_download",
+                    )
+                else:
+                    st.info("No responses yet.")
+            except Exception as e:
+                st.error(f"Could not load from Google Sheets: {e}")
         elif pwd:
             st.error("Incorrect password.")
 
