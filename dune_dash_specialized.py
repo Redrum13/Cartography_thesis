@@ -1567,8 +1567,6 @@ def main():
 
     left_col, map_col, right_col = st.columns([1.2, 3.5, 1.3], gap="small")
     render_dashboard_layout_1(left_col, map_col, right_col)
-    render_feedback_form()
-    render_admin_panel()
 
 
 if __name__ == "__main__":
