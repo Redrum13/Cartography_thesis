@@ -1243,7 +1243,9 @@ def render_feedback_form():
                 <p style="font-size:.82rem;color:#5C3D1E;margin:0 0 6px 0;">
                 This is an <strong>evaluation</strong> of a cartographic monitoring
                 dashboard prototype for Namib Desert star dune dynamics (for MSc Cartography thesis).
-                Your feedback directly shapes the next development iteration.
+                Your feedback directly shapes the next development iteration. (If you are not comfortable filling this form on this page 
+                you can fill the exact same feedback form in a separate Google Form: 
+                <a href="https://docs.google.com/forms/d/e/1FAIpQLSeR5UQci2K1d2DTloQrwQmSWXkytGCt8sVqrw3lwT35LuE0dw/viewform?usp=publish-editor" target="_blank">Feedback Form</a>)
                 </p>
                 <p style="font-size:.82rem;color:#5C3D1E;margin:0 0 6px 0;">
                 Responses are <strong>fully anonymous</strong>, so no name or contact
@@ -1567,6 +1569,8 @@ def main():
 
     left_col, map_col, right_col = st.columns([1.2, 3.5, 1.3], gap="small")
     render_dashboard_layout_1(left_col, map_col, right_col)
+    render_feedback_form()
+    render_admin_panel()
 
 
 if __name__ == "__main__":
