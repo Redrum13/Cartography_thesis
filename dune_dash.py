@@ -1030,22 +1030,25 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
         
         
         # ── LAYERS ──────────────────────────────────────────────────────────────
-        disable_movement = preset in ["Annual", "Monthly", "Custom"]
-
-        st.markdown('<div class="right-panel-header">Layers</div>', unsafe_allow_html=True)
-        show_crests = st.checkbox("Crest lines", value=True, key="b_show_crests")
-        show_gap_fills = st.checkbox("  Gap fills", value=False, disabled=not show_crests, key="b_show_gap_fills")
-        show_movement = st.checkbox("Crest Movement", value=False, disabled=disable_movement, key="b_show_movement")
-        if disable_movement:
-            st.caption("Crest movement only available in Compare presets.")
-        show_playa = st.checkbox("Playa (Highest Purity)", value=True, key="b_show_playa")
-        show_wind = st.checkbox("Wind rose overlay", value=True, key="b_show_wind")
-        show_uncertainty = st.checkbox("Uncertainty lines", value=True, key="b_show_uncertainty")
-        show_base_imagery = st.checkbox("Base Imagery (Sentinel-2)", value=True, key="b_show_base_imagery")
+        with st.expander("  Remote Sensing Layers", expanded=False):
+            disable_movement = preset in ["Annual", "Monthly", "Custom"]
+            show_crests = st.checkbox("Crest lines", value=True, key="b_show_crests")
+            show_gap_fills = st.checkbox("  Gap fills", value=False, disabled=not show_crests, key="b_show_gap_fills")
+            show_movement = st.checkbox("Crest Movement", value=False, disabled=disable_movement, key="b_show_movement")
+            if disable_movement:
+                st.caption("Crest movement only available in Compare presets.")
+            show_playa = st.checkbox("Playa (Highest Purity)", value=True, key="b_show_playa")
+            show_wind = st.checkbox("Wind rose overlay", value=True, key="b_show_wind")
+            show_uncertainty = st.checkbox("Uncertainty lines", value=True, key="b_show_uncertainty")
+            show_base_imagery = st.checkbox("Base Imagery (Sentinel-2)", value=True, key="b_show_base_imagery")
+        
+        with st.expander("  In-situ Layers", expanded=False):
+            st.markdown('<p>Coming soon</p>', unsafe_allow_html=True)
 
         st.markdown('<div class="right-panel-header">Opacity</div>', unsafe_allow_html=True)
         opacity = st.slider("Layer opacity", 0.2, 1.0, 0.75, 0.05,
                             label_visibility="collapsed", key="b_opacity_slider")
+        
         
 
     # ── FILTER DATA ───────────────────────────────────────────────────────────
