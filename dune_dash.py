@@ -268,8 +268,31 @@ st.markdown(CSS, unsafe_allow_html=True)
 # CONSTANTS
 # ------------------------------------------------------------------------------
 ALL_YEARS  = list(range(2017, 2027))
-ALL_MONTHS = {"May": 5, "June": 6, "July": 7, "August": 8}
+
+# All 12 months are now available for crest lines and playa polygons.
+ALL_MONTHS = {
+    "January": 1, "February": 2, "March": 3, "April": 4,
+    "May": 5, "June": 6, "July": 7, "August": 8,
+    "September": 9, "October": 10, "November": 11, "December": 12,
+}
 MONTH_NAMES = list(ALL_MONTHS.keys())
+
+def month_abbr(month_name):
+    """Display helper: 'January' -> 'JAN'. Underlying value stays the full name."""
+    return month_name[:3].upper()
+
+# Wind data now covers all months, same as crest/playa data.
+WIND_MONTHS = ALL_MONTHS
+
+# Number of days per month (non-leap year), used to size the wind coverage chart.
+DAYS_IN_MONTH = {
+    "January": 31, "February": 28, "March": 31, "April": 30,
+    "May": 31, "June": 30, "July": 31, "August": 31,
+    "September": 30, "October": 31, "November": 30, "December": 31,
+}
+
+# Default focus months for the Custom preset and Monthly preset dropdown.
+DEFAULT_FOCUS_MONTHS = ["May", "June", "July", "August"]
 
 UNC_GREEN  = 2.0
 UNC_YELLOW = 6.0
@@ -372,7 +395,7 @@ def load_wind_data():
     df["datetime"] = pd.to_datetime(df["datetime"], format="%d %b %Y")
     df["year"]  = df["datetime"].dt.year
     df["month"] = df["datetime"].dt.month
-    return df[df["month"].isin(ALL_MONTHS.values())]
+    return df[df["month"].isin(WIND_MONTHS.values())]
 
 
 @st.cache_data(show_spinner="Loading uncertainty points ...")
@@ -459,12 +482,11 @@ def unc_color(error_m):
 
 
 def wind_completeness(wind_df, years, months):
-    m_nums = [ALL_MONTHS[m] for m in months]
+    m_nums = [WIND_MONTHS[m] for m in months if m in WIND_MONTHS]
     sub = wind_df[wind_df["year"].isin(years) & wind_df["month"].isin(m_nums)]
     if sub.empty:
         return 0.0, sub
-    days_per_month = {"May": 31, "June": 30, "July": 31, "August": 31}
-    expected = sum(days_per_month[m] for y in years for m in months)
+    expected = sum(DAYS_IN_MONTH[m] for y in years for m in months if m in DAYS_IN_MONTH)
     if expected == 0:
         return 0.0, sub
     frac = min(sub["direction"].notna().sum() / expected, 1.0)
@@ -488,18 +510,28 @@ def build_wind_rose_image(wind_df):
 
 
 def build_gantt_figure(wind_df, years, months):
-    fig, ax = _dark_fig(4.2, max(1.8, len(years) * 0.38))
-    m_nums  = [ALL_MONTHS[m] for m in months]
-    days_in = {"May": 31, "June": 30, "July": 31, "August": 31}
+    fig, ax = _dark_fig(5.6, max(1.8, len(years) * 0.38))
+    m_nums = [WIND_MONTHS[m] for m in months if m in WIND_MONTHS]
+
+    # Lay months out left-to-right in calendar order, each slot sized to its
+    # real day count plus a small gap, so this works for any subset of months.
+    ordered_months = sorted(WIND_MONTHS.items(), key=lambda item: item[1])
+    x0_by_month, xticks, xlabels = {}, [], []
+    cursor = 0
+    for m_name, m_num in ordered_months:
+        x0_by_month[m_name] = cursor
+        xticks.append(cursor + DAYS_IN_MONTH[m_name] / 2)
+        xlabels.append(month_abbr(m_name))
+        cursor += DAYS_IN_MONTH[m_name] + 2
 
     for i, year in enumerate(sorted(years)):
-        for m_name, m_num in ALL_MONTHS.items():
+        for m_name, m_num in ordered_months:
             if m_num not in m_nums:
                 continue
             sub   = wind_df[(wind_df.year == year) & (wind_df.month == m_num) &
                             (wind_df["direction"].notna())]
-            days  = days_in[m_name]
-            x0    = (m_num - 5) * 32
+            days  = DAYS_IN_MONTH[m_name]
+            x0    = x0_by_month[m_name]
             valid = len(sub)
             miss  = days - valid
             pct   = (valid / days) * 100
@@ -516,8 +548,8 @@ def build_gantt_figure(wind_df, years, months):
 
     ax.set_yticks(range(len(sorted(years))))
     ax.set_yticklabels(sorted(years), fontsize=7, color=MPL_FG)
-    ax.set_xticks([15.5, 47, 78.5, 110])
-    ax.set_xticklabels(["May", "Jun", "Jul", "Aug"], fontsize=7, color=MPL_FG)
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xlabels, fontsize=7, color=MPL_FG)
     ax.set_title("Wind Coverage", fontsize=8, color=MPL_ACCENT, pad=4)
     ax.grid(axis="x", color=MPL_GRID, linewidth=0.4, linestyle=":")
     fig.tight_layout(pad=0.4)
@@ -896,7 +928,7 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
         
         preset = st.radio(
             "Select View Mode",
-            ["Annual", "Monthly", "Compare", "Custom"],
+            ["Compare", "Monthly", "Annual", "Custom"],
             key="b_preset",
             label_visibility="collapsed",
             horizontal=True
@@ -914,7 +946,7 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
                     key="b_annual_year"
                 )
             with c2:
-                st.markdown('<p style="font-size:0.7rem;color:var(--text-secondary);margin-top:20px;">All Months (May-Aug)</p>', unsafe_allow_html=True)
+                st.markdown('<p style="font-size:0.7rem;color:var(--text-secondary);margin-top:20px;">All Months (Jan-Dec)</p>', unsafe_allow_html=True)
             
             # Filter: specific year, all months
             selected_years = [selected_year]
@@ -927,6 +959,8 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
                 selected_month = st.selectbox(
                     "Month",
                     options=MONTH_NAMES,
+                    index=MONTH_NAMES.index("May"),
+                    format_func=month_abbr,
                     key="b_monthly_month"
                 )
             with c2:
@@ -972,26 +1006,26 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             wind_pct, f_wind = wind_completeness(wind_df, selected_years, selected_months)
             
         else:  # Custom
-            # Full control: year range + month selection
-            year_range = st.slider(
-                "Year Range",
-                2017, 2026,
-                (2017, 2026),
-                step=1,
+            # Full control: year selection + month selection
+            selected_years = st.multiselect(
+                "Years",
+                ALL_YEARS,
+                default=ALL_YEARS,
                 key="b_custom_years"
             )
-
-            st.caption("Bring the circles together to select one year.")
-            selected_years = list(range(year_range[0], year_range[1] + 1))
+            if not selected_years:
+                st.warning("Select at least one year.")
+                selected_years = ALL_YEARS
             selected_months = st.multiselect(
                 "Months",
                 MONTH_NAMES,
-                default=MONTH_NAMES,
+                default=DEFAULT_FOCUS_MONTHS,
+                format_func=month_abbr,
                 key="b_custom_months"
             )
             if not selected_months:
                 st.warning("Select at least one month.")
-                selected_months = MONTH_NAMES
+                selected_months = DEFAULT_FOCUS_MONTHS
             
         
         
@@ -1097,14 +1131,17 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
         # Wind coverage
         st.markdown('<div class="right-panel-header">Wind Coverage</div>', unsafe_allow_html=True)
         if not wind_df.empty:
-            fig_g = build_gantt_figure(wind_df, selected_years, selected_months)
-            st.pyplot(fig_g, use_container_width=True)
-            plt.close(fig_g)
-            if wind_pct < WIND_WARN_PCT:
-                st.markdown(
-                    f'<div class="warn-box">! {wind_pct*100:.0f}% coverage</div>',
-                    unsafe_allow_html=True,
-                )
+            try:
+                fig_g = build_gantt_figure(wind_df, selected_years, selected_months)
+                st.pyplot(fig_g, use_container_width=True)
+                plt.close(fig_g)
+                if wind_pct < WIND_WARN_PCT:
+                    st.markdown(
+                        f'<div class="warn-box">! {wind_pct*100:.0f}% coverage</div>',
+                        unsafe_allow_html=True,
+                    )
+            except Exception:
+                st.caption("Wind coverage chart unavailable for this selection.")
         else:
             st.caption("No wind data loaded.")
         
@@ -1171,41 +1208,7 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
 # ------------------------------------------------------------------------------
 
 
-LIKERT = [
-    "1 – Strongly disagree",
-    "2 – Disagree",
-    "3 – Neutral",
-    "4 – Agree",
-    "5 – Strongly agree",
-]
-
-def _get_anon_id():
-    """Generate or retrieve a session-scoped anonymous ID."""
-    if "anon_id" not in st.session_state:
-        import random, string
-        st.session_state["anon_id"] = "".join(
-            random.choices(string.ascii_uppercase + string.digits, k=6)
-        )
-    return st.session_state["anon_id"]
-
-def get_feedback_path():
-    try:
-        audience = st.secrets["AUDIENCE"]
-    except (KeyError, FileNotFoundError):
-        audience = "general"  # local dev fallback
-    return f"feedback_log_{audience}.csv"
-
-def save_feedback(record: dict):
-    path = get_feedback_path()
-    df_new = pd.DataFrame([record])
-    if os.path.exists(path):
-        df_new.to_csv(path, mode="a", header=False, index=False)
-    else:
-        df_new.to_csv(path, mode="w", header=True, index=False)
-
-
 def render_feedback_form():
-    anon_id = _get_anon_id()
 
     st.markdown('<div class="right-panel-header">FEEDBACK</div>', unsafe_allow_html=True)
 
@@ -1218,262 +1221,18 @@ def render_feedback_form():
                 <p style="font-size:.82rem;color:#5C3D1E;margin:0 0 6px 0;">
                 This is an <strong>evaluation</strong> of a cartographic monitoring
                 dashboard prototype for Namib Desert star dune dynamics (for MSc Cartography thesis).
-                Your feedback directly shapes the next development iteration.
+                Your feedback directly shapes the next development iteration. Google Form: 
+                <a href="https://docs.google.com/forms/d/e/1FAIpQLSeR5UQci2K1d2DTloQrwQmSWXkytGCt8sVqrw3lwT35LuE0dw/viewform?usp=publish-editor" target="_blank">Feedback Form</a>)
+                </p>
                 </p>
                 <p style="font-size:.82rem;color:#5C3D1E;margin:0 0 6px 0;">
                 Responses are <strong>fully anonymous</strong>, so no name or contact
                 information is collected. Takes ~3–4 minutes.
                 </p>
-                <p style="font-size:.78rem;color:#8B7A6A;margin:0;">
-                Your anonymous session ID: <code style="background:#EDE6D3;
-                padding:1px 6px;border-radius:3px;font-weight:700;
-                color:#5C3D1E;">{anon_id}</code>
-                — keep this if you want to follow up.
-                </p>
             </div>
             """,
             unsafe_allow_html=True,
         )
-
-        # ── Profile ────────────────────────────────────────────────────────
-        st.markdown("**About you** *(optional — helps contextualise responses)*")
-        c1, c2 = st.columns(2)
-        with c1:
-            expertise = st.selectbox(
-                "Cartography / GIS background",
-                ["Prefer not to say", "None / General Public",
-                 "Geodesy", "Photogrammetry",
-                 "Remote Sensing", "Geoinformatics", "Cartography", "Other Academic"],
-                key="fb_expertise",
-            )
-        with c2:
-            prior_use = st.selectbox(
-                "How familiar are you with this dashboard?",
-                ["First time seeing it", "Explored it briefly",
-                 "Used it multiple times"],
-                key="fb_prior",
-            )
-
-        st.divider()
-
-        # ── 1. Temporal encoding ───────────────────────────────────────────
-        st.markdown("**1 · Temporal Encoding**")
-        st.caption(
-            "Time is encoded via a plasma colormap (purple → yellow) across "
-            "crest lines and playa (Highest Purity)."
-        )
-        q1a = st.select_slider(
-            "The color progression clearly communicates the sequence of observations over time.",
-            LIKERT, value="3 – Neutral", key="fb_q1a",
-        )
-        q1b = st.select_slider(
-            "I could tell earlier from more recent observations without consulting the legend.",
-            LIKERT, value="3 – Neutral", key="fb_q1b",
-        )
-
-        st.divider()
-
-        # ── 2. Multi-layer legibility ──────────────────────────────────────
-        st.markdown("**2 · Multi-layer Legibility & Visual Hierarchy**")
-        st.caption(
-            "The map overlays crest lines, playa (Highest Purity), GNSS uncertainty lines, "
-            "and optionally movement points simultaneously."
-        )
-        q2a = st.select_slider(
-            "I can distinguish between the different map layers without confusion.",
-            LIKERT, value="3 – Neutral", key="fb_q2a",
-        )
-        q2b = st.select_slider(
-            "The visual hierarchy (what stands out first) matches what I'd expect to be most important.",
-            LIKERT, value="3 – Neutral", key="fb_q2b",
-        )
-        q2c = st.select_slider(
-            "The legend is sufficient to interpret all map symbols.",
-            LIKERT, value="3 – Neutral", key="fb_q2c",
-        )
-
-        st.divider()
-
-        # ── 3. Interaction & presets ───────────────────────────────────────
-        st.markdown("**3 · Interaction Design**")
-        st.caption(
-            "Four preset modes filter data: Annual, Monthly, Compare (two specific dates), Custom."
-        )
-        q3a = st.select_slider(
-            "The preset modes were intuitive to use without instruction.",
-            LIKERT, value="3 – Neutral", key="fb_q3a",
-        )
-        q3b = st.select_slider(
-            "The Compare preset effectively supported understanding of dune change between dates.",
-            LIKERT, value="3 – Neutral", key="fb_q3b",
-        )
-
-        st.divider()
-
-        # ── 4. Uncertainty ─────────────────────────────────────────────────
-        st.markdown("**4 · Uncertainty Visualization**")
-        st.caption(
-            "Uncertainty shown as perpendicular lines: green < 2 m, yellow 2–6 m, red > 6 m."
-        )
-        q4a = st.select_slider(
-            "The three-tier color coding for distance between satellite image derived crest and GNSS points was immediately understandable.",
-            LIKERT, value="3 – Neutral", key="fb_q4a",
-        )
-        q4b = st.select_slider(
-            "Showing uncertainty directly on the map (not just in a table) added value.",
-            LIKERT, value="3 – Neutral", key="fb_q4b",
-        )
-
-        st.divider()
-
-        # ── 5. Wind rose & Gantt ───────────────────────────────────────────
-        st.markdown("**5 · Supplementary Graphics**")
-        st.caption(
-            "A wind rose overlays the map top-right; a coverage Gantt chart "
-            "appears in the right panel."
-        )
-        q5a = st.select_slider(
-            "The wind rose enhanced my understanding of the environmental context.",
-            LIKERT, value="3 – Neutral", key="fb_q5a",
-        )
-        q5b = st.select_slider(
-            "The wind coverage Gantt chart was useful for understanding data gaps.",
-            LIKERT, value="3 – Neutral", key="fb_q5b",
-        )
-
-        st.divider()
-
-        # ── 6. Aesthetics ──────────────────────────────────────────────────
-        st.markdown("**6 · Aesthetics & Domain Suitability**")
-        st.caption(
-            "Earthy brown / sand palette chosen to reflect the Namib Desert environment."
-        )
-        q6a = st.select_slider(
-            "The color palette felt appropriate for a desert geomorphology tool.",
-            LIKERT, value="3 – Neutral", key="fb_q6a",
-        )
-        q6b = st.select_slider(
-            "The visual design did not distract from interpreting the scientific data.",
-            LIKERT, value="3 – Neutral", key="fb_q6b",
-        )
-
-        st.divider()
-
-        # ── 7. Overall ─────────────────────────────────────────────────────
-        st.markdown("**7 · Overall Assessment**")
-        q7a = st.select_slider(
-            "The dashboard effectively communicates how aeolian landscape changed over 2017–2026.",
-            LIKERT, value="3 – Neutral", key="fb_q7a",
-        )
-        q7b = st.select_slider(
-            "Compared to raw GeoJSON/CSV files, this dashboard represents a meaningful advancement in data visualization.",
-            LIKERT, value="3 – Neutral", key="fb_q7b",
-        )
-
-        st.divider()
-
-        # ── 8. What's missing / broken (midterm focus) ─────────────────────
-        st.markdown("**8 · Other Suggestions**")
-        st.caption(
-            "Your valuable input will directly shape what gets "
-            "built or changed next."
-        )
-
-        missing = st.multiselect(
-            "Which of the following would most improve the dashboard? *(select all that apply)*",
-            [
-                "Clearer temporal colormap / legend",
-                "Better layer toggling / layer order control",
-                "More intuitive preset modes",
-                "Stronger uncertainty communication",
-                "Improved wind data integration",
-                "Mobile / smaller screen support",
-                "Faster load times",
-                "Additional export formats",
-                "More context / explanatory text on the map",
-                "A time-slider / animation feature",
-                "Something else (describe below)",
-            ],
-            key="fb_missing",
-        )
-
-        c1, c2 = st.columns(2)
-        with c1:
-            improvement = st.text_area(
-                "What would you change or add next?",
-                height=90, key="fb_improve",
-                placeholder="e.g. the plasma ramp is hard to read on satellite imagery...",
-            )
-        with c2:
-            strength = st.text_area(
-                "What is working well and should be kept?",
-                height=90, key="fb_strength",
-                placeholder="e.g. the Compare preset made change detection very intuitive...",
-            )
-
-        st.markdown("")
-        submitted = st.button("Submit feedback", type="secondary", key="fb_submit")
-
-        if submitted:
-            if "fb_submitted" in st.session_state:
-                st.info("You have already submitted feedback this session. Thank you!")
-            else:
-                record = {
-                    "timestamp": pd.Timestamp.now().isoformat(),
-                    "anon_id": anon_id,
-                    "expertise": expertise,
-                    "prior_use": prior_use,
-                    "temporal_colormap_order":   q1a,
-                    "temporal_no_legend_needed": q1b,
-                    "layer_distinction":         q2a,
-                    "visual_hierarchy":          q2b,
-                    "legend_sufficiency":        q2c,
-                    "preset_intuitive":          q3a,
-                    "compare_effective":         q3b,
-                    "uncertainty_color_clear":   q4a,
-                    "uncertainty_on_map_value":  q4b,
-                    "windrose_contextual":       q5a,
-                    "gantt_gap_useful":          q5b,
-                    "palette_appropriate":       q6a,
-                    "design_not_distracting":    q6b,
-                    "overall_change_communication": q7a,
-                    "advancement_vs_raw_data":   q7b,
-                    "midterm_priorities":        "; ".join(missing),
-                    "improvement_comment":       improvement,
-                    "strength_comment":          strength,
-                }
-                save_feedback(record)
-                st.session_state["fb_submitted"] = True
-                st.success(f"Thank you — response recorded. Your ID: **{anon_id}**")
-                st.balloons()
-
-
-# ------------------------------------------------------------------------------
-# ADMIN PANEL  — password-gated, bottom of page
-# ------------------------------------------------------------------------------
-
-def render_admin_panel():
-    with st.expander(" Admin — View & Export Feedback", expanded=False):
-        pwd = st.text_input("Password", type="password", key="admin_pwd")
-        correct = st.secrets.get("ADMIN_PASSWORD", "admin")  # fallback for local dev
-
-        if pwd == correct:
-            path = get_feedback_path()
-            if os.path.exists(path):
-                df = pd.read_csv(path)
-                st.success(f"{len(df)} response(s) collected.")
-                st.dataframe(df, use_container_width=True)
-                st.download_button(
-                    "⬇  Download feedback_log.csv",
-                    data=df.to_csv(index=False),
-                    file_name=path,
-                    mime="text/csv",
-                    key="admin_download",
-                )
-            else:
-                st.info("No responses yet.")
-        elif pwd:
-            st.error("Incorrect password.")
 
 # ------------------------------------------------------------------------------
 # MAIN APP
@@ -1492,46 +1251,47 @@ def main():
     unsafe_allow_html=True,
     )
 
-    st.markdown(
-            """
-            <div style="font-family:'Segoe UI',sans-serif;font-size:.83rem;
-                        color:#3B2F1E;line-height:1.7;">
+    with st.expander("  About this dashboard", expanded=False):
+        st.markdown(
+                """
+                <div style="font-family:'Segoe UI',sans-serif;font-size:.83rem;
+                            color:#3B2F1E;line-height:1.7;">
 
-            <p>This dashboard monitors the aeolian landscape near Sossusvlei in the
-              Namib Desert between 2017 and 2026, covering the active dune season
-            (May–August) each year.</p>
+                <p>This dashboard monitors the aeolian landscape near Sossusvlei in the
+                Namib Desert between 2017 and 2026, covering the active dune season
+                (May–August) each year.</p>
 
-            <p><strong style="color:#5C3D1E;">Data sources</strong></p>
-            <ul style="margin:0 0 10px 0;padding-left:18px;">
-                <li><strong>Base Imagery:</strong> from Sentinel-2 multispectral imagery.</li>
-                <li><strong>Crest lines:</strong> extracted from Sentinel-2 multispectral imagery
-                using automated skeletonization and canny edge-detection, with gap-filling applied
-                where weak gradient magnitude interrupted acquisition.</li>
-                <li><strong>Playa polygons:</strong> delineated from Sentinel-2 using a salinity index
-                (SI-1 = √(Blue * Red)), retaining only pixels above the 97th percentile of SI-1 values
-                per scene. This high-purity threshold isolates the brightest, most saline playa surface,
-                excluding mixed or transitional pixels at the playa margin.</li>
-                <li><strong>Wind data:</strong> daily wind speed and direction records from
-                Dieprivier weather station, providing context for dune activity patterns.</li>
-                <li><strong>GNSS / reference crests:</strong> field-surveyed GNSS points for
-                <em>The Star Dune</em>; manually digitized reference crests for
-                <em>Big Mommy Dune</em> and <em>Inverted Y Dune</em>.</li>
-            </ul>
+                <p><strong style="color:#5C3D1E;">Data sources</strong></p>
+                <ul style="margin:0 0 10px 0;padding-left:18px;">
+                    <li><strong>Base Imagery:</strong> from Sentinel-2 multispectral imagery.</li>
+                    <li><strong>Crest lines:</strong> extracted from Sentinel-2 multispectral imagery
+                    using automated skeletonization and canny edge-detection, with gap-filling applied
+                    where weak gradient magnitude interrupted acquisition.</li>
+                    <li><strong>Playa polygons:</strong> delineated from Sentinel-2 using a salinity index
+                    (SI-1 = √(Blue * Red)), retaining only pixels above the 97th percentile of SI-1 values
+                    per scene. This high-purity threshold isolates the brightest, most saline playa surface,
+                    excluding mixed or transitional pixels at the playa margin.</li>
+                    <li><strong>Wind data:</strong> daily wind speed and direction records from
+                    Dieprivier weather station, providing context for dune activity patterns.</li>
+                    <li><strong>GNSS / reference crests:</strong> field-surveyed GNSS points for
+                    <em>The Star Dune</em>; manually digitized reference crests for
+                    <em>Big Mommy Dune</em> and <em>Inverted Y Dune</em>.</li>
+                </ul>
 
-            <p><strong style="color:#5C3D1E;">A note on uncertainty</strong></p>
-            <p>In this dashboard, <em>uncertainty</em> refers to the perpendicular distance between
-            a satellite-derived crest line and its corresponding reference position based on either a
-            field-surveyed GNSS point (<em>The Star Dune</em>) or a manually digitized crest
-            (<em>Big Mommy Dune</em>, <em>Inverted Y Dune</em>). This metric captures the combined
-            effect of image resolution, atmospheric conditions, and extraction method error.
-            Lines are colour-coded: <span style="color:#31A857;font-weight:700;">green</span> &lt; 2 m,
-            <span style="color:#B8A800;font-weight:700;">yellow</span> 2–6 m,
-            <span style="color:#C7400F;font-weight:700;">red</span> &gt; 6 m.</p>
+                <p><strong style="color:#5C3D1E;">A note on uncertainty</strong></p>
+                <p>In this dashboard, <em>uncertainty</em> refers to the perpendicular distance between
+                a satellite-derived crest line and its corresponding reference position based on either a
+                field-surveyed GNSS point (<em>The Star Dune</em>) or a manually digitized crest
+                (<em>Big Mommy Dune</em>, <em>Inverted Y Dune</em>). This metric captures the combined
+                effect of image resolution, atmospheric conditions, and extraction method error.
+                Lines are colour-coded: <span style="color:#31A857;font-weight:700;">green</span> &lt; 2 m,
+                <span style="color:#B8A800;font-weight:700;">yellow</span> 2–6 m,
+                <span style="color:#C7400F;font-weight:700;">red</span> &gt; 6 m.</p>
 
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
 
     st.divider()
@@ -1539,7 +1299,7 @@ def main():
     left_col, map_col, right_col = st.columns([1.2, 3.5, 1.3], gap="small")
     render_dashboard_layout_1(left_col, map_col, right_col)
     render_feedback_form()
-    render_admin_panel()
+
 
 
 if __name__ == "__main__":
