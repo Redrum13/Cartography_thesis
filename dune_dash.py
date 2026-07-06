@@ -618,7 +618,7 @@ def build_map(
             folium.PolyLine(
                 locations=[[lat, lon] for lon, lat in coords],
                 color=c,
-                weight=2,
+                weight=5,
                 opacity= opacity,
                 tooltip=folium.Tooltip(
                     f"<b>GNSS Uncertainty</b><br>Error: {err:.2f} m"
