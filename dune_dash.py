@@ -400,11 +400,11 @@ def load_wind_data():
 
 @st.cache_data(show_spinner="Loading uncertainty points ...")
 def load_uncertainty_lines():
-    path = "main_data/multiline_uncertainty_perpendicular_lines.geojson"
+    path = "main_data/uncertainty_lines_length.geojson"
     gdf = gpd.read_file(path)
     gdf = gdf.to_crs("EPSG:4326")
-    if "uncertainty_m" in gdf.columns:
-        gdf = gdf.rename(columns={"uncertainty_m": "error_m"})
+    if "abs_error_m" in gdf.columns:
+        gdf = gdf.rename(columns={"abs_error_m": "error_m"})
     if "signed_distance_m" in gdf.columns:
         gdf["gnss_val"] = gdf["signed_distance_m"]
     if "left_or_right" in gdf.columns:
@@ -619,7 +619,7 @@ def build_map(
                 locations=[[lat, lon] for lon, lat in coords],
                 color=c,
                 weight=2,
-                opacity= 0.3,
+                opacity= opacity,
                 tooltip=folium.Tooltip(
                     f"<b>GNSS Uncertainty</b><br>Error: {err:.2f} m"
                 ),
@@ -1043,7 +1043,7 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             show_base_imagery = st.checkbox("Base Imagery (Sentinel-2)", value=True, key="b_show_base_imagery")
         
         with st.expander("  In-situ Layers", expanded=False):
-            st.markdown('<p>Coming soon</p>', unsafe_allow_html=True)
+            st.markdown('<div class="right-panel-header">Layers</div>', unsafe_allow_html=True)
 
         st.markdown('<div class="right-panel-header">Opacity</div>', unsafe_allow_html=True)
         opacity = st.slider("Layer opacity", 0.2, 1.0, 0.75, 0.05,
