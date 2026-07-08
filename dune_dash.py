@@ -832,7 +832,7 @@ def build_map(
             type_colors = {
                 'crest': '#FFD93D',  # Yellow
                 'CREST': '#FFD93D',  # Yellow
-                'edge': '#6C5CE7',   # Purple
+                'EDGE': '#6C5CE7',   # Purple
                 'bowl': '#A8E6CF'    # Light green
             }
             default_color = '#95A5A6'
