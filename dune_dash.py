@@ -1346,7 +1346,7 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
         # ── NEW: IN-SITU LAYERS ──────────────────────────────────────────────
         with st.expander("  In-situ Layers", expanded=False):
             st.markdown('<div class="right-panel-header">GNSS & Field Data</div>', unsafe_allow_html=True)
-            
+            st.markdown('<div class="right-panel-header">MARCH 2026</div>', unsafe_allow_html=True)
             # GNSS Points
             if not gnss_points_gdf.empty:
                 show_gnss_points = st.checkbox("GNSS Survey Points", value=False, key="b_show_gnss_points")
@@ -1360,10 +1360,6 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             else:
                 show_gnss_lines = False
                 st.caption("No GNSS line data available")
-            
-            st.markdown('<div style="margin:6px 0;"></div>', unsafe_allow_html=True)
-            st.markdown('<div class="right-panel-header">Geomorphology</div>', unsafe_allow_html=True)
-            
             # Geomorphology layers
             geomorph_lines_available = 'geomorph_lines' in geomorph_data and not geomorph_data['geomorph_lines'].empty
             geomorph_points_available = 'geomorph_points' in geomorph_data and not geomorph_data['geomorph_points'].empty
