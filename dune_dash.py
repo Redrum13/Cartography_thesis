@@ -1345,7 +1345,6 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
         
         # ── NEW: IN-SITU LAYERS ──────────────────────────────────────────────
         with st.expander("  In-situ Layers", expanded=False):
-            st.markdown('<div class="right-panel-header">GNSS & Field Data</div>', unsafe_allow_html=True)
             st.markdown('<div class="right-panel-header">MARCH 2026</div>', unsafe_allow_html=True)
             # GNSS Points
             if not gnss_points_gdf.empty:
