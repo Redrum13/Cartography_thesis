@@ -398,7 +398,7 @@ def load_wind_data():
     return df[df["month"].isin(WIND_MONTHS.values())]
 
 
-@st.cache_data(show_spinner="Loading uncertainty points ...")
+@st.cache_data(show_spinner="Loading uncertainty lines ...")
 def load_uncertainty_lines():
     path = "main_data/uncertainty_lines_length.geojson"
     gdf = gpd.read_file(path)
@@ -411,6 +411,65 @@ def load_uncertainty_lines():
         gdf["detected_val"] = gdf["left_or_right"]
     return gdf
 
+
+# ============================================================================
+# NEW: GNSS DATA LOADING FUNCTIONS
+# ============================================================================
+
+@st.cache_data(show_spinner="Loading GNSS points ...")
+def load_gnss_points():
+    """Load GNSS point data from GeoJSON"""
+    path = "main_data/GNSS_all_points.geojson"
+    if not os.path.exists(path):
+        st.warning(f"GNSS points file not found: {path}")
+        return gpd.GeoDataFrame()
+    
+    try:
+        gdf = gpd.read_file(path).to_crs("EPSG:4326")
+        return gdf
+    except Exception as e:
+        st.error(f"Error loading GNSS points: {e}")
+        return gpd.GeoDataFrame()
+
+@st.cache_data(show_spinner="Loading GNSS crest/edge/bowl lines ...")
+def load_gnss_lines():
+    """Load GNSS line features (crest, edge, bowl) from GeoJSON"""
+    path = "main_data/GNSS_crest_edge_bowl_lines.geojson"
+    if not os.path.exists(path):
+        st.warning(f"GNSS lines file not found: {path}")
+        return gpd.GeoDataFrame()
+    
+    try:
+        gdf = gpd.read_file(path).to_crs("EPSG:4326")
+        return gdf
+    except Exception as e:
+        st.error(f"Error loading GNSS lines: {e}")
+        return gpd.GeoDataFrame()
+
+@st.cache_data(show_spinner="Loading geomorphology layers ...")
+def load_geomorph_layers():
+    """Load geomorphology shapefiles (line, point, polygon features)"""
+    geomorph_data = {}
+    
+    # List of geomorphology files to load
+    geomorph_files = {
+        "geomorph_lines": "main_data/Geomorph-SOS1_line-features.geojson",
+        "geomorph_points": "main_data/Geomorph-SOS1_point-features.geojson",
+        "geomorph_polygons": "main_data/Geomorph-SOS1_polygon-features.geojson"
+    }
+    
+    for key, path in geomorph_files.items():
+        if os.path.exists(path):
+            try:
+                gdf = gpd.read_file(path).to_crs("EPSG:4326")
+                geomorph_data[key] = gdf
+            except Exception as e:
+                st.warning(f"Error loading {key}: {e}")
+                geomorph_data[key] = gpd.GeoDataFrame()
+        else:
+            geomorph_data[key] = gpd.GeoDataFrame()
+    
+    return geomorph_data
 
 # ------------------------------------------------------------------------------
 # HELPERS
@@ -571,7 +630,16 @@ def build_map(
     base_metadata=None,  
     selected_years=None, 
     selected_months=None,  
-    preset="Custom", 
+    preset="Custom",
+    # NEW: GNSS layer parameters
+    show_gnss_points=False,
+    show_gnss_lines=False,
+    show_geomorph_lines=False,
+    show_geomorph_points=False,
+    show_geomorph_polygons=False,
+    gnss_points_gdf=None,
+    gnss_lines_gdf=None,
+    geomorph_data=None,
 ):
     m = folium.Map(location=MAP_CENTER, zoom_start=MAP_ZOOM,
                    tiles=None, control_scale=True)
@@ -697,7 +765,158 @@ def build_map(
                 ),
             ).add_to(m)
 
-    # 5. WIND ROSE OVERLAY
+    # ============================================================================
+    # NEW: GNSS AND GEOMORPHOLOGY LAYERS
+    # ============================================================================
+    
+    # 5a. GNSS Points
+    if show_gnss_points and gnss_points_gdf is not None and not gnss_points_gdf.empty:
+        # Color by type if available
+        if 'type' in gnss_points_gdf.columns:
+            type_colors = {
+                'p3': '#FF6B6B',      # Red
+                'p4': '#FF6B6B',      # Red
+                'ccp': '#4ECDC4',    # Teal
+                'crest': '#FFD93D',  # Yellow
+                'edge': '#6C5CE7',   # Purple
+                'bowl': '#A8E6CF'    # Light green
+            }
+            # Default color for unknown types
+            default_color = '#95A5A6'
+            
+            for _, row in gnss_points_gdf.iterrows():
+                point_type = row.get('type', 'Unknown')
+                color = type_colors.get(point_type.lower(), default_color)
+                
+                # Get point name for tooltip
+                name = row.get('full_name', row.get('Name', 'Unknown'))
+                
+                folium.CircleMarker(
+                    location=[row.geometry.y, row.geometry.x],
+                    radius=2,
+                    color=color,
+                    fill=True,
+                    fill_color=color,
+                    fill_opacity=opacity * 0.8,
+                    weight=2,
+                    tooltip=folium.Tooltip(
+                        f"<b>GNSS Point</b><br>"
+                        f"Name: {name}<br>"
+                        f"Type: {point_type}<br>"
+                        f"Group: {row.get('group', 'Unknown')}<br>"
+                        f"Direction: {row.get('direction', 'Unknown')}<br>"
+                        f"Sequence: {row.get('sequence', '')}"
+                    ),
+                ).add_to(m)
+        else:
+            # If no type column, just plot all points in a single color
+            for _, row in gnss_points_gdf.iterrows():
+                name = row.get('full_name', row.get('Name', 'Unknown'))
+                folium.CircleMarker(
+                    location=[row.geometry.y, row.geometry.x],
+                    radius=5,
+                    color='#FF6B6B',
+                    fill=True,
+                    fill_color='#FF6B6B',
+                    fill_opacity=opacity * 0.8,
+                    weight=2,
+                    tooltip=folium.Tooltip(
+                        f"<b>GNSS Point</b><br>"
+                        f"Name: {name}"
+                    ),
+                ).add_to(m)
+
+    # 5b. GNSS Lines (crest, edge, bowl)
+    if show_gnss_lines and gnss_lines_gdf is not None and not gnss_lines_gdf.empty:
+        if 'type' in gnss_lines_gdf.columns:
+            type_colors = {
+                'crest': '#FFD93D',  # Yellow
+                'CREST': '#FFD93D',  # Yellow
+                'edge': '#6C5CE7',   # Purple
+                'bowl': '#A8E6CF'    # Light green
+            }
+            default_color = '#95A5A6'
+        for _, row in gnss_lines_gdf.iterrows():
+            coords = list(row.geometry.coords)
+            # coords are [x, y, z] - we only need x and y
+            # Convert from [x, y] to [lat, lon] for folium
+            locations = [[coord[1], coord[0]] for coord in coords]
+            
+            if len(locations) >= 2:
+                line_name = row.get('name', 'Unknown')
+                folium.PolyLine(
+                    locations=locations,
+                    color=type_colors.get(row.get('type'), default_color),
+                    weight=3,
+                    opacity=opacity,
+                    tooltip=folium.Tooltip(
+                        f"<b>GNSS Line</b><br>"
+                        f"Name: {line_name}"
+                    ),
+                ).add_to(m)
+
+    # 5c. Geomorphology Lines
+    if show_geomorph_lines and geomorph_data is not None and 'geomorph_lines' in geomorph_data:
+        gdf_lines = geomorph_data['geomorph_lines']
+        if not gdf_lines.empty:
+            for _, row in gdf_lines.iterrows():
+                coords = list(row.geometry.coords)
+                folium.PolyLine(
+                    locations=[[lat, lon] for lon, lat in coords],
+                    color="#201C19",
+                    weight=2,
+                    opacity=opacity * 0.7,
+                    tooltip=folium.Tooltip(
+                        f"<b>Geomorph Line</b><br>"
+                        f"ID: {row.get('id', 'Unknown')}"
+                    ),
+                ).add_to(m)
+
+    # 5d. Geomorphology Points
+    if show_geomorph_points and geomorph_data is not None and 'geomorph_points' in geomorph_data:
+        gdf_points = geomorph_data['geomorph_points']
+        if not gdf_points.empty:
+            for _, row in gdf_points.iterrows():
+                folium.CircleMarker(
+                    location=[row.geometry.y, row.geometry.x],
+                    radius=4,
+                    color="#FD6F17",
+                    fill=True,
+                    fill_color='#FD6F17',
+                    fill_opacity=opacity * 0.7,
+                    weight=1,
+                    tooltip=folium.Tooltip(
+                        f"<b>Geomorph Point</b><br>"
+                        f"ID: {row.get('Sample', 'Unknown')}"
+                    ),
+                ).add_to(m)
+
+    # 5e. Geomorphology Polygons
+    if show_geomorph_polygons and geomorph_data is not None and 'geomorph_polygons' in geomorph_data:
+        gdf_polygons = geomorph_data['geomorph_polygons']
+        if not gdf_polygons.empty:
+            if 'Feature' in gdf_polygons.columns:
+                type_colors = {
+                    'Fossil Dune': '#6C5CE7',   # Purple
+                    'Recent Vlei': '#A8E6CF'    # Light green
+                }
+                default_color = '#95A5A6'
+                for _, row in gdf_polygons.iterrows():
+                    folium.GeoJson(
+                        row["geometry"].__geo_interface__,
+                        style={
+                            "fillColor": type_colors.get(row.get('Feature'), default_color),
+                            "color": type_colors.get(row.get('Feature'), default_color),
+                            "weight": 1,
+                            "fillOpacity": opacity * 0.3,
+                        },
+                        tooltip=folium.Tooltip(
+                            f"<b>Geomorph Polygon</b><br>"
+                            f"ID: {row.get('Feature', 'Unknown')}"
+                        ),
+                    ).add_to(m)
+
+    # 6. WIND ROSE OVERLAY
     if show_wind and wind_b64:
         badge = ""
         if wind_completeness_pct < WIND_WARN_PCT:
@@ -725,7 +944,7 @@ def build_map(
         </div>"""
         m.get_root().html.add_child(folium.Element(html))
 
-    # 6. LEGEND
+    # 7. LEGEND
     sections = []
 
     if show_crests or show_playa:
@@ -805,6 +1024,85 @@ def build_map(
             <span>&gt; 6 m</span></div>
         </div>""")
 
+    # NEW: GNSS Layer Legend Entries with colors
+    if show_gnss_points or show_gnss_lines:
+        sections.append("""
+        <div class="ls">
+        <div class="lt">GNSS Field Data</div>""")
+        
+        if show_gnss_points:
+            sections.append("""
+            <div class="lr">
+                <div style="width:14px;height:14px;border-radius:50%;background:#FF6B6B;"></div>
+                <span>GNSS Points (P3, P4)</span>
+            </div>
+            <div class="lr">
+                <div style="width:14px;height:14px;border-radius:50%;background:#4ECDC4;"></div>
+                <span>GNSS Points (CCP)</span>
+            </div>
+            <div class="lr">
+                <div style="width:14px;height:14px;border-radius:50%;background:#FFD93D;"></div>
+                <span>GNSS Points (Crest)</span>
+            </div>
+            <div class="lr">
+                <div style="width:14px;height:14px;border-radius:50%;background:#6C5CE7;"></div>
+                <span>GNSS Points (Edge)</span>
+            </div>
+            <div class="lr">
+                <div style="width:14px;height:14px;border-radius:50%;background:#A8E6CF;"></div>
+                <span>GNSS Points (Bowl)</span>
+            </div>""")
+        
+        if show_gnss_lines:
+            sections.append("""
+            <div class="lr">
+                <div style="width:14px;height:3px;background:#FFD93D;"></div>
+                <span>GNSS Crest Line</span>
+            </div>
+            <div class="lr">
+                <div style="width:14px;height:3px;background:#6C5CE7;"></div>
+                <span>GNSS Edge Line</span>
+            </div>
+            <div class="lr">
+                <div style="width:14px;height:3px;background:#A8E6CF;"></div>
+                <span>GNSS Bowl Line</span>
+            </div>""")
+        
+        sections.append("</div>")
+
+    # Geomorphology legend with colors
+    if show_geomorph_lines or show_geomorph_points or show_geomorph_polygons:
+        sections.append("""
+        <div class="ls">
+        <div class="lt">Geomorphology</div>""")
+        
+        if show_geomorph_lines:
+            sections.append("""
+            <div class="lr">
+                <div style="width:14px;height:3px;background:#201C19;"></div>
+                <span>Erosion fossil dune / vlei deposits</span>
+            </div>""")
+        
+        if show_geomorph_points:
+            sections.append("""
+            <div class="lr">
+                <div style="width:14px;height:14px;border-radius:50%;background:#FD6F17;"></div>
+                <span>Sediment Sample Points</span>
+            </div>""")
+        
+        if show_geomorph_polygons:
+            sections.append("""
+            <div class="lr">
+                <div style="width:14px;height:14px;background:#6C5CE7;opacity:0.5;border:1px solid #6C5CE7;"></div>
+                <span>Fossil Dune</span>
+            </div>
+            <div class="lr">
+                <div style="width:14px;height:14px;background:#A8E6CF;opacity:0.5;border:1px solid #A8E6CF;"></div>
+                <span>Recent Vlei</span>
+            </div>""")
+        
+        sections.append("</div>")
+
     if show_base_imagery and base_img_date:
         sections.append(f"""
         <div class="ls">
@@ -837,9 +1135,9 @@ def build_map(
           <div id="dt" onclick="
             var c=document.getElementById('dc');
             var a=document.getElementById('da');
-            if(c.style.display==='none'){{c.style.display='block';a.textContent='v';}}
-            else{{c.style.display='none';a.textContent='>';}}">
-            LEGEND <span id="da">v</span>
+            if(c.style.display==='none'){{c.style.display='block';a.textContent='▼';}}
+            else{{c.style.display='none';a.textContent='►';}}">
+            LEGEND <span id="da">▼</span>
           </div>
           <div id="dc">{"".join(sections)}</div>
         </div></div>"""
@@ -903,6 +1201,11 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
     var_gdf   = safe_load(load_movement_points, "movement points")
     playa_gdf = safe_load(load_playa_polygons, "playa (Highest Purity)")
     unc_gdf   = safe_load(load_uncertainty_lines, "uncertainty lines")
+    
+    # NEW: Load GNSS and geomorphology data
+    gnss_points_gdf = safe_load(load_gnss_points, "GNSS points")
+    gnss_lines_gdf = safe_load(load_gnss_lines, "GNSS lines")
+    geomorph_data = safe_load(load_geomorph_layers, "geomorphology layers")
 
     try:
         wind_df = load_wind_data()
@@ -1026,8 +1329,6 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             if not selected_months:
                 st.warning("Select at least one month.")
                 selected_months = DEFAULT_FOCUS_MONTHS
-            
-        
         
         # ── LAYERS ──────────────────────────────────────────────────────────────
         with st.expander("  Remote Sensing Layers", expanded=False):
@@ -1042,13 +1343,53 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             show_uncertainty = st.checkbox("Uncertainty lines", value=True, key="b_show_uncertainty")
             show_base_imagery = st.checkbox("Base Imagery (Sentinel-2)", value=True, key="b_show_base_imagery")
         
+        # ── NEW: IN-SITU LAYERS ──────────────────────────────────────────────
         with st.expander("  In-situ Layers", expanded=False):
-            st.markdown('<div class="right-panel-header">Layers</div>', unsafe_allow_html=True)
+            st.markdown('<div class="right-panel-header">GNSS & Field Data</div>', unsafe_allow_html=True)
+            
+            # GNSS Points
+            if not gnss_points_gdf.empty:
+                show_gnss_points = st.checkbox("GNSS Survey Points", value=False, key="b_show_gnss_points")
+            else:
+                show_gnss_points = False
+                st.caption("No GNSS points data available")
+            
+            # GNSS Lines (crest, edge, bowl)
+            if not gnss_lines_gdf.empty:
+                show_gnss_lines = st.checkbox("GNSS Crest/Edge/Bowl Lines", value=False, key="b_show_gnss_lines")
+            else:
+                show_gnss_lines = False
+                st.caption("No GNSS line data available")
+            
+            st.markdown('<div style="margin:6px 0;"></div>', unsafe_allow_html=True)
+            st.markdown('<div class="right-panel-header">Geomorphology</div>', unsafe_allow_html=True)
+            
+            # Geomorphology layers
+            geomorph_lines_available = 'geomorph_lines' in geomorph_data and not geomorph_data['geomorph_lines'].empty
+            geomorph_points_available = 'geomorph_points' in geomorph_data and not geomorph_data['geomorph_points'].empty
+            geomorph_polygons_available = 'geomorph_polygons' in geomorph_data and not geomorph_data['geomorph_polygons'].empty
+            
+            if geomorph_lines_available:
+                show_geomorph_lines = st.checkbox("Erosion fossil dune / vlei deposits", value=False, key="b_show_geomorph_lines")
+            else:
+                show_geomorph_lines = False
+                st.caption("No geomorph line data available")
+            
+            if geomorph_points_available:
+                show_geomorph_points = st.checkbox("Sediment Sample Points", value=False, key="b_show_geomorph_points")
+            else:
+                show_geomorph_points = False
+                st.caption("No geomorph point data available")
+            
+            if geomorph_polygons_available:
+                show_geomorph_polygons = st.checkbox("Recent Vlei / Fossil Dunes", value=False, key="b_show_geomorph_polygons")
+            else:
+                show_geomorph_polygons = False
+                st.caption("No geomorph polygon data available")
 
         st.markdown('<div class="right-panel-header">Opacity</div>', unsafe_allow_html=True)
         opacity = st.slider("Layer opacity", 0.2, 1.0, 0.75, 0.05,
                             label_visibility="collapsed", key="b_opacity_slider")
-        
         
 
     # ── FILTER DATA ───────────────────────────────────────────────────────────
@@ -1092,11 +1433,20 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             show_playa=show_playa, show_wind=show_wind, show_uncertainty=show_uncertainty,
             opacity=opacity,
             date_min=date_min, date_max=date_max,
-            show_base_imagery=show_base_imagery,  # NEW
-            base_metadata=base_metadata,          # NEW
-            selected_years=selected_years,        # NEW
-            selected_months=selected_months,      # NEW
-            preset=preset,   
+            show_base_imagery=show_base_imagery,
+            base_metadata=base_metadata,
+            selected_years=selected_years,
+            selected_months=selected_months,
+            preset=preset,
+            # NEW: GNSS layer parameters
+            show_gnss_points=show_gnss_points,
+            show_gnss_lines=show_gnss_lines,
+            show_geomorph_lines=show_geomorph_lines,
+            show_geomorph_points=show_geomorph_points,
+            show_geomorph_polygons=show_geomorph_polygons,
+            gnss_points_gdf=gnss_points_gdf,
+            gnss_lines_gdf=gnss_lines_gdf,
+            geomorph_data=geomorph_data,
         )
 
         # Zoom-to-feature dropdown
@@ -1279,6 +1629,8 @@ def main():
                     <li><strong>GNSS / reference crests:</strong> field-surveyed GNSS points for
                     <em>The Star Dune</em>; manually digitized reference crests for
                     <em>Big Mommy Dune</em> and <em>Inverted Y Dune</em>.</li>
+                    <li><strong>In-situ data:</strong> GNSS survey points, GNSS crest/edge/bowl lines, 
+                    and geomorphology features (lines, points, polygons) collected during field campaigns.</li>
                 </ul>
 
                 <p><strong style="color:#5C3D1E;">A note on uncertainty</strong></p>
