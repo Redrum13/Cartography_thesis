@@ -260,6 +260,22 @@ hr { border-color: var(--border-color) !important; margin: 4px 0; }
     color: var(--accent);
     border-bottom: 3px solid var(--accent);
 }
+
+/* Add title to the top bar next to the deploy button */
+[data-testid="stHeader"]::before {
+    content: "Star Dune Dynamics";
+    position: absolute;
+    left: 20%;
+    transform: translateX(-50%);
+    color: var(--text-primary);
+    font-family: 'Georgia', serif;
+    font-size: 2rem;
+    font-weight: 600;
+    letter-spacing: .02em;
+    padding: 10px 0;
+    pointer-events: none; /* Allows clicking through to buttons */
+}
+
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -357,7 +373,7 @@ def load_movement_points():
     gdf = gpd.read_file(path).to_crs("EPSG:4326")
     gdf["point_id"] = gdf["point_id"].astype(str)
     date_cols = [c for c in gdf.columns if c.startswith("date_")]
-    geom_df   = gdf[["point_id", "distance_along_m", "geometry"]].drop_duplicates("point_id")
+    geom_df   = gdf[["point_id", "distance_along_m", "geometry", "orientation_deg"]].drop_duplicates("point_id")
     df_long   = gdf[["point_id", "distance_along_m"] + date_cols].melt(
         id_vars=["point_id", "distance_along_m"],
         var_name="date_col", value_name="distance_m",
@@ -486,9 +502,8 @@ def get_base_imagery_for_date(metadata, selected_years, selected_months, date_a,
         target_year = date_a.year
         target_month = date_a.month
     elif preset == "Annual":
-        # Use the selected year, use May as default month
         target_year = selected_years[0] if selected_years else 2017
-        target_month = 5  # May
+        target_month = 1  # Jan
     elif preset == "Monthly":
         # Use the selected month, use earliest year available
         target_year = 2017  # Or get from metadata
@@ -723,8 +738,11 @@ def build_map(
             if row.get("is_gap_fill", False) and not show_gap_fills:
                 continue
             c    = date_color_map.get(str(row["date"]), "#C9BA9B")
-            dash = "8 4" if row.get("is_gap_fill", False) else None
-            style = {"color": c, "weight": 2, "opacity": opacity, "dashArray": dash}
+            style = {
+                "color": c, 
+                "weight": 2, 
+                "opacity": opacity*0.5 if row.get("is_gap_fill", False) else opacity, 
+                "dashArray": "8 4" if row.get("is_gap_fill", False) else None}
             folium.GeoJson(
                 row["geometry"].__geo_interface__,
                 style_function=lambda f, s=style: s,
@@ -735,33 +753,79 @@ def build_map(
                 ),
             ).add_to(m)
 
-    # 4. movement POINTS
+    # 4. movement POINTS — drawn as directional arrows that follow the perpendicular
+    #    orientation. When diff > 0 (advance), arrow points in the perpendicular direction
+    #    (orientation_deg). When diff < 0 (retreat), arrow points in the opposite direction
+    #    (orientation_deg + 180).
     if show_movement and date_a and date_b and not var_gdf.empty:
         def _agg(df, dt):
             sub = df[df["date"] == pd.Timestamp(dt)]
             return sub.groupby("point_id")["geometry"].first(), \
-                   sub.groupby("point_id")["distance_m"].mean()
+                sub.groupby("point_id")["distance_m"].mean()
 
         geom_a, dist_a = _agg(var_gdf, date_a)
         geom_b, dist_b = _agg(var_gdf, date_b)
         common = dist_a.index.intersection(dist_b.index)
+        
+        # Get orientation for each point_id from the original data
+        orientation_lookup = {}
+        if 'orientation_deg' in var_gdf.columns:
+            # Get unique orientation per point_id (should be constant for each point)
+            for pid in common:
+                orientation_values = var_gdf[var_gdf['point_id'] == pid]['orientation_deg'].unique()
+                if len(orientation_values) > 0 and not pd.isna(orientation_values[0]):
+                    orientation_lookup[pid] = orientation_values[0]
+                else:
+                    orientation_lookup[pid] = None  # Explicitly mark as missing
+        else:
+            # No orientation column available - skip movement arrows
+            st.warning("Orientation data not available. Movement arrows require 'orientation_deg' column.")
+            # Continue with empty lookup, arrows won't be drawn
 
         for pid in common:
+            # Skip if no orientation data
+            if pid not in orientation_lookup or orientation_lookup[pid] is None:
+                continue
+                
             val_a = float(dist_a[pid])
             val_b = float(dist_b[pid])
             geom  = geom_b[pid]
             diff  = val_b - val_a
             color = diverging_color(diff)
-            radius = max(4, min(12, abs(diff) * 1.5))
-            folium.CircleMarker(
+            magnitude = abs(diff)
+            size = max(14, min(34, 14 + magnitude * 1.8))
+
+            # Arrow direction: follow perpendicular orientation
+            # orientation_deg is 0-360 where 0 = North, 90 = East, etc.
+            # For advance (diff > 0): point in the perpendicular direction
+            # For retreat (diff < 0): point in the opposite direction
+            if diff >= 0:
+                arrow_deg = orientation_lookup[pid]
+            else:
+                arrow_deg = (orientation_lookup[pid] + 180) % 360
+
+            arrow_svg = f"""
+            <div style="width:{size}px;height:{size}px;transform:rotate({arrow_deg-90}deg);">
+            <svg width="{size}" height="{size}" viewBox="0 0 24 24">
+                <line x1="0" y1="12" x2="19" y2="12" stroke="{color}" stroke-width="1.5" stroke-linecap="round"/>
+                <polygon points="17,8 23,12 17,16" fill="{color}"/>
+            </svg>
+            </div>"""
+
+            folium.Marker(
                 location=[float(geom.y), float(geom.x)],
-                radius=radius, stroke=False,
-                color=color, fill=True, fill_color=color, fill_opacity=opacity,
+                icon=folium.DivIcon(
+                    icon_size=(size, size),
+                    icon_anchor=(size / 2, size / 2),
+                    html=arrow_svg,
+                ),
                 tooltip=folium.Tooltip(
                     f"<b>Crest movement</b><br>Point: {pid}<br>"
                     f"Date A ({pd.Timestamp(date_a).date()}): {val_a:.2f} m<br>"
                     f"Date B ({pd.Timestamp(date_b).date()}): {val_b:.2f} m<br>"
-                    f"<b>Change: {diff:+.2f} m</b>"
+                    f"Orientation: {orientation_lookup[pid]:.1f}°<br>"
+                    f"<b>Change: {diff:+.2f} m</b> "
+                    f"({'advance' if diff >= 0 else 'retreat'})"
                 ),
             ).add_to(m)
 
@@ -796,9 +860,10 @@ def build_map(
                     radius=2,
                     color=color,
                     fill=True,
+                    stroke=False,
                     fill_color=color,
-                    fill_opacity=opacity * 0.8,
-                    weight=2,
+                    fill_opacity=1,
+                    weight=5,
                     tooltip=folium.Tooltip(
                         f"<b>GNSS Point</b><br>"
                         f"Name: {name}<br>"
@@ -832,7 +897,7 @@ def build_map(
             type_colors = {
                 'crest': '#FFD93D',  # Yellow
                 'CREST': '#FFD93D',  # Yellow
-                'EDGE': '#6C5CE7',   # Purple
+                'edge': '#6C5CE7',   # Purple
                 'bowl': '#A8E6CF'    # Light green
             }
             default_color = '#95A5A6'
@@ -1186,7 +1251,7 @@ def uncertainty_hist_fig(unc_gdf):
 # ------------------------------------------------------------------------------
 
        
-def render_dashboard_layout_1(left_col, map_col, right_col):
+def render_dashboard_layout_1(map_col, right_col):
     """Render the main dashboard layout with left panel, map, and right panel"""
     
     # Load data (same as layout A)
@@ -1224,7 +1289,7 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
     date_b = None
 
     # ── LEFT PANEL ──────────────────────────────────────────────────────────
-    with left_col:
+    with st.sidebar:
         
         # ── PRESETS ──────────────────────────────────────────────────────────────
         st.markdown('<div class="right-panel-header">Presets</div>', unsafe_allow_html=True)
@@ -1240,7 +1305,7 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
         # ── DYNAMIC DATE SELECTION BASED ON PRESET ──────────────────────────────
         
         if preset == "Annual":
-            # Show all years, all months for selected year
+            # Show specific year with selectable month range (2-6 months)
             c1, c2 = st.columns(2)
             with c1:
                 selected_year = st.selectbox(
@@ -1249,14 +1314,24 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
                     key="b_annual_year"
                 )
             with c2:
-                st.markdown('<p style="font-size:0.7rem;color:var(--text-secondary);margin-top:20px;">All Months (Jan-Dec)</p>', unsafe_allow_html=True)
+                st.markdown('<p style="font-size:0.7rem;color:var(--text-secondary);margin-top:20px;">Select Months (2-6)</p>', unsafe_allow_html=True)
             
-            # Filter: specific year, all months
+            # Month range slider for Annual preset (default May-August)
+            month_range = st.select_slider(
+                "Months",
+                options=MONTH_NAMES,
+                value=(MONTH_NAMES[4], MONTH_NAMES[7]),
+                key="b_annual_month_range",
+                label_visibility="collapsed"
+            )
+            
+            start_idx = MONTH_NAMES.index(month_range[0])
+            end_idx = MONTH_NAMES.index(month_range[1])
+            selected_months = MONTH_NAMES[start_idx:end_idx + 1]
             selected_years = [selected_year]
-            selected_months = MONTH_NAMES  # All months
             
         elif preset == "Monthly":
-            # Show all years, specific month
+            # Show specific month with selectable year range (2-6 years)
             c1, c2 = st.columns(2)
             with c1:
                 selected_month = st.selectbox(
@@ -1267,14 +1342,24 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
                     key="b_monthly_month"
                 )
             with c2:
-                st.markdown('<p style="font-size:0.7rem;color:var(--text-secondary);margin-top:20px;">All Years (2017-2026)</p>', unsafe_allow_html=True)
+                st.markdown('<p style="font-size:0.7rem;color:var(--text-secondary);margin-top:20px;">Select Years (2-6)</p>', unsafe_allow_html=True)
             
-            # Filter: all years, specific month
-            selected_years = ALL_YEARS
+            # Year range slider for Monthly preset (default latest 5 years)
+            sorted_years = sorted(ALL_YEARS)
+            year_range = st.select_slider(
+                "Years",
+                options=sorted_years,
+                value=(sorted_years[-5], sorted_years[-1]),
+                key="b_monthly_year_range",
+                label_visibility="collapsed"
+            )
+            
+            start_idx = sorted_years.index(year_range[0])
+            end_idx = sorted_years.index(year_range[1])
+            selected_years = sorted_years[start_idx:end_idx + 1]
             selected_months = [selected_month]
             
         elif preset == "Compare":
-            # Two specific dates for comparison
             date_options = sorted(crest_gdf["date"].unique())
             date_strings = [d.strftime("%Y-%m-%d") for d in date_options]
             
@@ -1286,26 +1371,25 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
                     index=0,
                     key="b_compare_date_a"
                 )
-            with c2:
-                date_b_str = st.selectbox(
-                    "Date B",
-                    options=date_strings,
-                    index=len(date_strings)-1 if len(date_strings) > 1 else 0,
-                    key="b_compare_date_b"
-                )
             
             date_a = pd.to_datetime(date_a_str)
-            date_b = pd.to_datetime(date_b_str)
+            date_a_idx = date_options.index(date_a)
             
-            # For crest data: only the two specific dates
+            # Auto-set Date B to the next available date
+            if date_a_idx + 1 < len(date_options):
+                date_b = date_options[date_a_idx + 1]
+            else:
+                date_b = date_a  # Fallback
+            
+            with c2:
+                st.markdown(
+                    f'<p style="font-size:0.85rem;color:var(--text-secondary);margin-top:28px;">'
+                    f'<strong>Date B:</strong> {date_b.strftime("%Y-%m-%d")}</p>',
+                    unsafe_allow_html=True
+                )
+            
             selected_years = list(set([date_a.year, date_b.year]))
             selected_months = list(set([date_a.strftime("%B"), date_b.strftime("%B")]))
-
-            # For Compare: use the actual years and months from both dates
-            selected_years = [date_a.year, date_b.year]
-            selected_months = [date_a.strftime("%B"), date_b.strftime("%B")]
-            
-            # For wind data
             wind_pct, f_wind = wind_completeness(wind_df, selected_years, selected_months)
             
         else:  # Custom
@@ -1329,8 +1413,28 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             if not selected_months:
                 st.warning("Select at least one month.")
                 selected_months = DEFAULT_FOCUS_MONTHS
+
+        # ── ZOOM TO FEATURE ─────────────────────────────────────────────
+        st.markdown('<div class="right-panel-header">Zoom to Feature</div>', unsafe_allow_html=True)
+        dune_names = st.session_state.get("dune_names", [])
+        DEFAULT_DUNE = "The Star Dune"
+
+        zoom_options = ["All Features"] + dune_names
+        default_index = (
+            zoom_options.index(DEFAULT_DUNE)
+            if DEFAULT_DUNE in zoom_options else 0
+        )
+        zoom_to = st.selectbox(
+            "Zoom to feature", zoom_options,
+            index=default_index,
+            label_visibility="collapsed", 
+            key="b_zoom_select"
+        )
+        # Store zoom selection in session state for later use
+        st.session_state["zoom_to"] = zoom_to
         
         # ── LAYERS ──────────────────────────────────────────────────────────────
+        st.markdown('<div class="right-panel-header">Layers</div>', unsafe_allow_html=True)
         with st.expander("  Remote Sensing Layers", expanded=False):
             disable_movement = preset in ["Annual", "Monthly", "Custom"]
             show_crests = st.checkbox("Crest lines", value=True, key="b_show_crests")
@@ -1345,7 +1449,8 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
         
         # ── NEW: IN-SITU LAYERS ──────────────────────────────────────────────
         with st.expander("  In-situ Layers", expanded=False):
-            st.markdown('<div class="right-panel-header">FROM MARCH 2026</div>', unsafe_allow_html=True)
+            st.markdown('<div class="right-panel-header">GNSS & Field Data</div>', unsafe_allow_html=True)
+            
             # GNSS Points
             if not gnss_points_gdf.empty:
                 show_gnss_points = st.checkbox("GNSS Survey Points", value=False, key="b_show_gnss_points")
@@ -1359,6 +1464,10 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             else:
                 show_gnss_lines = False
                 st.caption("No GNSS line data available")
+            
+            st.markdown('<div style="margin:6px 0;"></div>', unsafe_allow_html=True)
+            st.markdown('<div class="right-panel-header">Geomorphology</div>', unsafe_allow_html=True)
+            
             # Geomorphology layers
             geomorph_lines_available = 'geomorph_lines' in geomorph_data and not geomorph_data['geomorph_lines'].empty
             geomorph_points_available = 'geomorph_points' in geomorph_data and not geomorph_data['geomorph_points'].empty
@@ -1444,29 +1553,16 @@ def render_dashboard_layout_1(left_col, map_col, right_col):
             geomorph_data=geomorph_data,
         )
 
-        # Zoom-to-feature dropdown
-        st.markdown('<div class="right-panel-header">Zoom to Feature</div>', unsafe_allow_html=True)
-        dune_names = st.session_state.get("dune_names", [])
-        DEFAULT_DUNE = "The Star Dune"
-
-        zoom_options = ["All Features"] + dune_names
-        default_index = (
-            zoom_options.index(DEFAULT_DUNE)
-            if DEFAULT_DUNE in zoom_options else 0
-        )
-        zoom_to = st.selectbox(
-            "Zoom to feature", zoom_options,
-            index=default_index,
-            label_visibility="collapsed", key="b_zoom_select"
-        )
-        if zoom_to != "All Features" and not crest_gdf.empty and "dune_name" in crest_gdf.columns:
-            geoms = crest_gdf[crest_gdf["dune_name"] == zoom_to].geometry
+        # ── ZOOM TO FEATURE (executed after map creation) ──────────────
+        zoom_to = st.session_state.get("zoom_to", "All Features")
+        if zoom_to != "All Features" and not f_crest.empty and "dune_name" in f_crest.columns:
+            geoms = f_crest[f_crest["dune_name"] == zoom_to].geometry
             if not geoms.empty:
                 b = geoms.total_bounds
                 folium_map.fit_bounds([[b[1], b[0]], [b[3], b[2]]])
 
         map_data = st_folium(
-            folium_map, width="100%", height=590,
+            folium_map, width="100%", height=700,
             returned_objects=["last_object_clicked"],
             key="b_folium_map"
         )
@@ -1587,17 +1683,6 @@ def render_feedback_form():
 # ------------------------------------------------------------------------------
 
 def main():
-    # Page title with padding
-    st.markdown(
-        '<div style="padding-top: 8px;"></div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-    '<h1 style="margin:0 0 2px 0;color:#5C3D1E;">Star Dune Dynamics</h1>'
-    '<p style="color:#8B7A6A;font-size:.78rem;margin:0 0 8px 0;'
-    'font-family:monospace;">Aeolian crest monitoring  ·  Namib Desert  ·  2017–2026  ·  May–Aug</p>',
-    unsafe_allow_html=True,
-    )
 
     with st.expander("  About this dashboard", expanded=False):
         st.markdown(
@@ -1646,9 +1731,9 @@ def main():
 
     st.divider()
 
-    left_col, map_col, right_col = st.columns([1.2, 3.5, 1.3], gap="small")
-    render_dashboard_layout_1(left_col, map_col, right_col)
-    render_feedback_form()
+    map_col, right_col = st.columns([4, 1])
+    render_dashboard_layout_1(map_col, right_col)
+    #render_feedback_form()
 
 
 
