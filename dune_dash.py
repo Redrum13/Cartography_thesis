@@ -313,6 +313,9 @@ DEFAULT_FOCUS_MONTHS = ["May", "June", "July", "August"]
 UNC_GREEN  = 2.0
 UNC_YELLOW = 6.0
 
+# Margin of Error from GNSS validation (The Star Dune, March 2026)
+REPRESENTATIVE_MARGIN_OF_ERROR_M = 5.892  # 95% CI margin
+
 WIND_WARN_PCT = 0.70
 WIND_HIDE_PCT = 0.30
 
@@ -640,6 +643,7 @@ def build_map(
     show_crests, show_gap_fills,
     show_movement, date_a, date_b,
     show_playa, show_wind, show_uncertainty,
+    show_margin_buffer,  # NEW: separate checkbox for margin buffer
     opacity, date_min=None, date_max=None,
     show_base_imagery=True, 
     base_metadata=None,  
@@ -691,6 +695,7 @@ def build_map(
                 control=True
             ).add_to(m)
 
+    # 1. UNCERTAINTY LINES (measured error vectors)
     if show_uncertainty and not unc_gdf.empty:
         for _, row in unc_gdf.iterrows():
             err = row.get("error_m", 0)
@@ -704,11 +709,33 @@ def build_map(
                 weight=5,
                 opacity= opacity,
                 tooltip=folium.Tooltip(
-                    f"<b>GNSS Uncertainty</b><br>Error: {err:.2f} m"
+                    f"<b>GNSS Displacement</b><br>Error: {err:.2f} m"
                 ),
             ).add_to(m)
 
-    # 2. PLAYA
+    # 2. MARGIN OF ERROR BUFFER (95% CI extrapolated to all crests)
+    if show_margin_buffer and not crest_gdf.empty:
+        try:
+            # Buffer in UTM for accurate distance
+            buffered = crest_gdf.to_crs("EPSG:32733")
+            buffered = buffered.assign(geometry=buffered.geometry.buffer(REPRESENTATIVE_MARGIN_OF_ERROR_M))
+            dissolved = buffered.dissolve().to_crs("EPSG:4326")
+            folium.GeoJson(
+                dissolved.geometry.iloc[0].__geo_interface__,
+                style_function=lambda f: {
+                    "fillColor": "#C7400F", "color": "#C7400F",
+                    "weight": 0, "fillOpacity": opacity * 0.5,
+                },
+                tooltip=folium.Tooltip(
+                    f"<b>Margin of Error Buffer (95% CI)</b><br>±{REPRESENTATIVE_MARGIN_OF_ERROR_M:.2f} m "
+                    f"(extrapolated from GNSS validation - The Star Dune, Mar 2026)"
+                ),
+            ).add_to(m)
+        except Exception as e:
+            # Silently fail if buffer can't be created
+            pass
+
+    # 3. PLAYA
     if show_playa and not playa_gdf.empty:
         dates_sorted  = sorted(playa_gdf["date"].unique())
         date_color_map = dict(zip(
@@ -728,7 +755,7 @@ def build_map(
                 ),
             ).add_to(m)
 
-    # 3. CREST LINES
+    # 4. CREST LINES
     if show_crests and not crest_gdf.empty:
         dates_sorted  = sorted(crest_gdf["date"].unique())
         date_color_map = dict(zip(
@@ -753,7 +780,7 @@ def build_map(
                 ),
             ).add_to(m)
 
-    # 4. movement POINTS — drawn as directional arrows that follow the perpendicular
+    # 5. movement POINTS — drawn as directional arrows that follow the perpendicular
     #    orientation. When diff > 0 (advance), arrow points in the perpendicular direction
     #    (orientation_deg). When diff < 0 (retreat), arrow points in the opposite direction
     #    (orientation_deg + 180).
@@ -793,7 +820,7 @@ def build_map(
             diff  = val_b - val_a
             color = diverging_color(diff)
             magnitude = abs(diff)
-            size = max(14, min(34, 14 + magnitude * 1.8))
+            size = max(10, min(25, 10 + magnitude * 1.8))
 
             # Arrow direction: follow perpendicular orientation
             # orientation_deg is 0-360 where 0 = North, 90 = East, etc.
@@ -807,7 +834,7 @@ def build_map(
             arrow_svg = f"""
             <div style="width:{size}px;height:{size}px;transform:rotate({arrow_deg-90}deg);">
             <svg width="{size}" height="{size}" viewBox="0 0 24 24">
-                <line x1="0" y1="12" x2="19" y2="12" stroke="{color}" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="0" y1="12" x2="19" y2="12" stroke="{color}" stroke-width="2" stroke-linecap="round"/>
                 <polygon points="17,8 23,12 17,16" fill="{color}"/>
             </svg>
             </div>"""
@@ -833,7 +860,7 @@ def build_map(
     # NEW: GNSS AND GEOMORPHOLOGY LAYERS
     # ============================================================================
     
-    # 5a. GNSS Points
+    # 6a. GNSS Points
     if show_gnss_points and gnss_points_gdf is not None and not gnss_points_gdf.empty:
         # Color by type if available
         if 'type' in gnss_points_gdf.columns:
@@ -891,7 +918,7 @@ def build_map(
                     ),
                 ).add_to(m)
 
-    # 5b. GNSS Lines (crest, edge, bowl)
+    # 6b. GNSS Lines (crest, edge, bowl)
     if show_gnss_lines and gnss_lines_gdf is not None and not gnss_lines_gdf.empty:
         if 'type' in gnss_lines_gdf.columns:
             type_colors = {
@@ -920,7 +947,7 @@ def build_map(
                     ),
                 ).add_to(m)
 
-    # 5c. Geomorphology Lines
+    # 6c. Geomorphology Lines
     if show_geomorph_lines and geomorph_data is not None and 'geomorph_lines' in geomorph_data:
         gdf_lines = geomorph_data['geomorph_lines']
         if not gdf_lines.empty:
@@ -937,7 +964,7 @@ def build_map(
                     ),
                 ).add_to(m)
 
-    # 5d. Geomorphology Points
+    # 6d. Geomorphology Points
     if show_geomorph_points and geomorph_data is not None and 'geomorph_points' in geomorph_data:
         gdf_points = geomorph_data['geomorph_points']
         if not gdf_points.empty:
@@ -956,7 +983,7 @@ def build_map(
                     ),
                 ).add_to(m)
 
-    # 5e. Geomorphology Polygons
+    # 6e. Geomorphology Polygons
     if show_geomorph_polygons and geomorph_data is not None and 'geomorph_polygons' in geomorph_data:
         gdf_polygons = geomorph_data['geomorph_polygons']
         if not gdf_polygons.empty:
@@ -981,7 +1008,7 @@ def build_map(
                         ),
                     ).add_to(m)
 
-    # 6. WIND ROSE OVERLAY
+    # 7. WIND ROSE OVERLAY
     if show_wind and wind_b64:
         badge = ""
         if wind_completeness_pct < WIND_WARN_PCT:
@@ -1009,7 +1036,7 @@ def build_map(
         </div>"""
         m.get_root().html.add_child(folium.Element(html))
 
-    # 7. LEGEND
+    # 8. LEGEND
     sections = []
 
     if show_crests or show_playa:
@@ -1051,20 +1078,23 @@ def build_map(
         <div class="lt">Crest Movement</div>
         <div style="display:flex;align-items:center;gap:6px;margin:3px 0;flex-wrap:wrap;">
             <div style="display:flex;align-items:center;gap:3px;">
-            <svg width="14" height="14">
-                <circle cx="7" cy="7" r="3" fill="none" stroke="#8B5E3C" stroke-width="1.5"/>
+            <svg width="14" height="14" viewBox="0 0 24 24">
+                <line x1="0" y1="12" x2="19" y2="12" stroke="#8B5E3C" stroke-width="2" stroke-linecap="round"/>
+                <polygon points="17,8 23,12 17,16" fill="#8B5E3C"/>
             </svg>
             <span style="font-size:8px;color:#5C3D1E;"> &lt; 2 m</span>
             </div>
             <div style="display:flex;align-items:center;gap:3px;">
-            <svg width="18" height="18">
-                <circle cx="9" cy="9" r="6" fill="none" stroke="#8B5E3C" stroke-width="1.5"/>
+            <svg width="18" height="18" viewBox="0 0 24 24">
+                <line x1="0" y1="12" x2="19" y2="12" stroke="#8B5E3C" stroke-width="3" stroke-linecap="round"/>
+                <polygon points="17,8 23,12 17,16" fill="#8B5E3C"/>
             </svg>
             <span style="font-size:8px;color:#5C3D1E;">2 m - 6 m</span>
             </div>
             <div style="display:flex;align-items:center;gap:3px;">
-            <svg width="24" height="24">
-                <circle cx="12" cy="12" r="9" fill="none" stroke="#8B5E3C" stroke-width="1.5"/>
+            <svg width="24" height="24" viewBox="0 0 24 24">
+                <line x1="0" y1="12" x2="19" y2="12" stroke="#8B5E3C" stroke-width="4" stroke-linecap="round"/>
+                <polygon points="17,8 23,12 17,16" fill="#8B5E3C"/>
             </svg>
             <span style="font-size:8px;color:#5C3D1E;"> &gt; 6 m</span>
             </div>
@@ -1077,17 +1107,35 @@ def build_map(
         </div>
         </div>""")
 
-    if show_uncertainty:
+   # Uncertainty section with both measured lines and margin buffer
+    if show_uncertainty or show_margin_buffer:
         sections.append("""
         <div class="ls">
-        <div class="lt">GNSS Uncertainty</div>
-        <div class="lr"><div style="width:14px;height:3px;background:#31A857;"></div>
-            <span>&lt; 2 m</span></div>
-        <div class="lr"><div style="width:14px;height:3px;background:#F7E62C;"></div>
-            <span>2-6 m</span></div>
-        <div class="lr"><div style="width:14px;height:3px;background:#C7400F;"></div>
-            <span>&gt; 6 m</span></div>
-        </div>""")
+        <div class="lt">ERROR ASSESSMENT</div>""")
+        
+        if show_uncertainty:
+            sections.append("""
+            <div class="lr" style="margin-top:3px;"><span style="font-size:8px;font-weight:600;color:#5C3D1E;">Measured DISPLACEMENT ERROR (March 2026)</span></div>
+            <div class="lr"><div style="width:14px;height:3px;background:#31A857;"></div>
+                <span>&lt; 2 m</span></div>
+            <div class="lr"><div style="width:14px;height:3px;background:#F7E62C;"></div>
+                <span>2-6 m</span></div>
+            <div class="lr"><div style="width:14px;height:3px;background:#C7400F;"></div>
+                <span>&gt; 6 m</span></div>""")
+        
+        if show_margin_buffer:
+            if show_uncertainty:
+                sections.append("""
+            <div style="border-top:1px dashed #C9BA9B;margin:4px 0;"></div>""")
+            sections.append(f"""
+            <div class="lr"><span style="font-size:8px;font-weight:600;color:#5C3D1E;">MARGIN OF ERROR (95% CI, EXTRAPOLATED)</span></div>
+            <div class="lr">
+                <svg width="16" height="10"><rect x="0" y="0" width="16" height="10"
+                    fill="#C7400F" opacity="0.3" stroke="#C7400F" stroke-width="1"/></svg>
+                <span>±{REPRESENTATIVE_MARGIN_OF_ERROR_M:.1f} m buffer (single-epoch assumption)</span>
+            </div>""")
+        
+        sections.append("</div>")
 
     # NEW: GNSS Layer Legend Entries with colors
     if show_gnss_points or show_gnss_lines:
@@ -1444,52 +1492,18 @@ def render_dashboard_layout_1(map_col, right_col):
                 st.caption("Crest movement only available in Compare presets.")
             show_playa = st.checkbox("Playa (Highest Purity)", value=True, key="b_show_playa")
             show_wind = st.checkbox("Wind rose overlay", value=True, key="b_show_wind")
-            show_uncertainty = st.checkbox("Uncertainty lines", value=True, key="b_show_uncertainty")
+            show_uncertainty = st.checkbox("Displacement Error Lines (Only March 2026)", value=False, key="b_show_uncertainty")
+            show_margin_buffer = st.checkbox("Margin of Error Buffer (95% CI)", value=False, key="b_show_margin_buffer")
             show_base_imagery = st.checkbox("Base Imagery (Sentinel-2)", value=True, key="b_show_base_imagery")
         
         # ── NEW: IN-SITU LAYERS ──────────────────────────────────────────────
         with st.expander("  In-situ Layers", expanded=False):
-            st.markdown('<div class="right-panel-header">GNSS & Field Data</div>', unsafe_allow_html=True)
-            
-            # GNSS Points
-            if not gnss_points_gdf.empty:
-                show_gnss_points = st.checkbox("GNSS Survey Points", value=False, key="b_show_gnss_points")
-            else:
-                show_gnss_points = False
-                st.caption("No GNSS points data available")
-            
-            # GNSS Lines (crest, edge, bowl)
-            if not gnss_lines_gdf.empty:
-                show_gnss_lines = st.checkbox("GNSS Crest/Edge/Bowl Lines", value=False, key="b_show_gnss_lines")
-            else:
-                show_gnss_lines = False
-                st.caption("No GNSS line data available")
-            
-            st.markdown('<div style="margin:6px 0;"></div>', unsafe_allow_html=True)
-            st.markdown('<div class="right-panel-header">Geomorphology</div>', unsafe_allow_html=True)
-            
-            # Geomorphology layers
-            geomorph_lines_available = 'geomorph_lines' in geomorph_data and not geomorph_data['geomorph_lines'].empty
-            geomorph_points_available = 'geomorph_points' in geomorph_data and not geomorph_data['geomorph_points'].empty
-            geomorph_polygons_available = 'geomorph_polygons' in geomorph_data and not geomorph_data['geomorph_polygons'].empty
-            
-            if geomorph_lines_available:
-                show_geomorph_lines = st.checkbox("Erosion fossil dune / vlei deposits", value=False, key="b_show_geomorph_lines")
-            else:
-                show_geomorph_lines = False
-                st.caption("No geomorph line data available")
-            
-            if geomorph_points_available:
-                show_geomorph_points = st.checkbox("Sediment Sample Points", value=False, key="b_show_geomorph_points")
-            else:
-                show_geomorph_points = False
-                st.caption("No geomorph point data available")
-            
-            if geomorph_polygons_available:
-                show_geomorph_polygons = st.checkbox("Recent Vlei / Fossil Dunes", value=False, key="b_show_geomorph_polygons")
-            else:
-                show_geomorph_polygons = False
-                st.caption("No geomorph polygon data available")
+            st.markdown('<div class="right-panel-header">From MARCH 2026</div>', unsafe_allow_html=True)
+            show_gnss_points = st.checkbox("GNSS Survey Points", value=False, key="b_show_gnss_points")
+            show_gnss_lines = st.checkbox("GNSS Crest/Edge/Bowl Lines", value=False, key="b_show_gnss_lines")
+            show_geomorph_lines = st.checkbox("Erosion fossil dune / vlei deposits", value=False, key="b_show_geomorph_lines")
+            show_geomorph_points = st.checkbox("Sediment Sample Points", value=False, key="b_show_geomorph_points")
+            show_geomorph_polygons = st.checkbox("Recent Vlei / Fossil Dunes", value=False, key="b_show_geomorph_polygons")
 
         st.markdown('<div class="right-panel-header">Opacity</div>', unsafe_allow_html=True)
         opacity = st.slider("Layer opacity", 0.2, 1.0, 0.75, 0.05,
@@ -1535,6 +1549,7 @@ def render_dashboard_layout_1(map_col, right_col):
             show_crests=show_crests, show_gap_fills=show_gap_fills,
             show_movement=show_movement, date_a=date_a, date_b=date_b,
             show_playa=show_playa, show_wind=show_wind, show_uncertainty=show_uncertainty,
+            show_margin_buffer=show_margin_buffer,  # NEW: pass margin buffer flag
             opacity=opacity,
             date_min=date_min, date_max=date_max,
             show_base_imagery=show_base_imagery,
