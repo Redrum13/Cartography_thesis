@@ -314,7 +314,7 @@ UNC_GREEN  = 2.0
 UNC_YELLOW = 6.0
 
 # Margin of Error from GNSS validation (The Star Dune, March 2026)
-REPRESENTATIVE_MARGIN_OF_ERROR_M = 5.892  # 95% CI margin
+REPRESENTATIVE_MARGIN_OF_ERROR_M =  4.738  # 95% CI margin
 
 WIND_WARN_PCT = 0.70
 WIND_HIDE_PCT = 0.30
@@ -490,9 +490,35 @@ def load_geomorph_layers():
     
     return geomorph_data
 
+@st.cache_data(show_spinner="Loading SOS 1 WEST wind data...")
+def load_hobo_wind_data():
+    path = "main_data/Weatherstation_SOS_1_West_March_2026.csv"
+    df = pd.read_csv(path, skiprows=1)
+    
+    # Parse datetime
+    df['datetime'] = pd.to_datetime(df['Datum Zeit, GMT+01:00'], format='%m.%d.%y %I:%M:%S %p')
+    
+    # Rename columns
+    df = df.rename(columns={
+        'Windrichtung, ø (LGR S/N: 22429151_duplicate, SEN S/N: 22407863, LBL: Wind direction)': 'direction',
+        'Windgeschwindigkeit, m/s (LGR S/N: 22429151_duplicate, SEN S/N: 22427869, LBL: Wind speed)': 'speed_ms'
+    })
+    
+    df['year'] = df['datetime'].dt.year
+    df['month'] = df['datetime'].dt.month
+    df['day'] = df['datetime'].dt.day
+    
+    return df
+
 # ------------------------------------------------------------------------------
 # HELPERS
 # ------------------------------------------------------------------------------
+
+def utm_to_latlon(easting, northing):
+    from pyproj import Transformer
+    transformer = Transformer.from_crs(f"EPSG:32733", "EPSG:4326")
+    lon, lat = transformer.transform(easting, northing)
+    return lon, lat
 
 def get_base_imagery_for_date(metadata, selected_years, selected_months, date_a, date_b, preset):
     """Determine which PNG to display based on selected date range"""
@@ -570,6 +596,20 @@ def wind_completeness(wind_df, years, months):
     return frac, sub
 
 
+def wind_completeness_daterange(wind_df, date_a, date_b):
+    """Date-accurate version for the Compare preset: filters wind data to the
+    exact calendar days between date_a and date_b (inclusive), rather than
+    every day in the two dates' months/years.
+    """
+    d0, d1 = sorted([pd.Timestamp(date_a), pd.Timestamp(date_b)])
+    sub = wind_df[(wind_df["datetime"] >= d0) & (wind_df["datetime"] <= d1)]
+    expected_days = (d1 - d0).days + 1
+    if expected_days <= 0:
+        return 0.0, sub
+    frac = min(sub["direction"].notna().sum() / expected_days, 1.0)
+    return frac, sub
+
+
 def build_wind_rose_image(wind_df):
     fig = plt.figure(figsize=(2.8, 2.8), facecolor=MPL_BG)
     ax = WindroseAxes.from_ax(fig=fig)
@@ -584,6 +624,68 @@ def build_wind_rose_image(wind_df):
                 facecolor=MPL_BG)
     plt.close(fig)
     return base64.b64encode(buf.getvalue()).decode()
+
+def build_simple_wind_rose(wind_df, date_start, date_end):
+    """Create a simple NSWE wind rose for a date range. Returns (base64_image, has_data)"""
+    # Filter wind data for the date range
+    sub = wind_df[(wind_df["datetime"] >= pd.Timestamp(date_start)) & 
+                  (wind_df["datetime"] <= pd.Timestamp(date_end))]
+    
+    # Check if we have data
+    if sub.empty or sub["direction"].notna().sum() < 5:
+        return None, False
+    
+    # Create simple wind rose
+    fig = plt.figure(figsize=(2.2, 2.2), facecolor=MPL_BG)
+    ax = WindroseAxes.from_ax(fig=fig)
+    
+    ax.bar(sub["direction"], sub["speed_ms"],
+           normed=True, opening=0.8, edgecolor=MPL_GRID,
+           cmap=plt.cm.YlOrBr, bins=np.arange(0, 12, 2))
+    
+    ax.set_facecolor(MPL_BG)
+    ax.tick_params(colors=MPL_FG, labelsize=6)
+    ax.set_title('')
+    ax.legend().set_visible(False)
+    
+    fig.patch.set_alpha(1)
+    
+    # Convert to base64
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=90, bbox_inches="tight", facecolor=MPL_BG)
+    plt.close(fig)
+    
+    return base64.b64encode(buf.getvalue()).decode(), True
+
+
+def get_wind_rose_pairs(crest_gdf, preset, selected_years, selected_months):
+    """Get consecutive date pairs for wind roses. Returns list of (date_a, date_b, label)"""
+    pairs = []
+    
+    if crest_gdf.empty:
+        return pairs
+    
+    dates = sorted(crest_gdf["date"].unique())
+    
+    if preset == "Monthly":
+        # Monthly: same month, consecutive years
+        month_num = ALL_MONTHS[selected_months[0]]
+        month_dates = [d for d in dates if d.month == month_num]
+        
+        for i in range(len(month_dates) - 1):
+            pairs.append((month_dates[i], month_dates[i + 1], 
+                         f"{month_dates[i].year}→{month_dates[i+1].year}"))
+            
+    elif preset == "Annual":
+        # Annual: same year, consecutive months
+        year = selected_years[0]
+        year_dates = [d for d in dates if d.year == year]
+        
+        for i in range(len(year_dates) - 1):
+            pairs.append((year_dates[i], year_dates[i + 1],
+                         f"{year_dates[i].strftime('%b')}→{year_dates[i+1].strftime('%b')}"))
+    
+    return pairs
 
 
 def build_gantt_figure(wind_df, years, months):
@@ -659,6 +761,10 @@ def build_map(
     gnss_points_gdf=None,
     gnss_lines_gdf=None,
     geomorph_data=None,
+    hobo_df=None,
+    hobo_lat=None,
+    hobo_lon=None,
+    show_hobo_wind=False,
 ):
     m = folium.Map(location=MAP_CENTER, zoom_start=MAP_ZOOM,
                    tiles=None, control_scale=True)
@@ -1009,7 +1115,7 @@ def build_map(
                     ).add_to(m)
 
     # 7. WIND ROSE OVERLAY
-    if show_wind and wind_b64:
+    if show_wind and wind_b64 and preset == "Compare":
         badge = ""
         if wind_completeness_pct < WIND_WARN_PCT:
             badge = (f'<div style="background:#FFF3CD;color:#6B4E00;font-size:9px;'
@@ -1019,10 +1125,7 @@ def build_map(
         <div style="position:fixed;top:10px;right:10px;z-index:9999;
                     background:rgba(253,248,240,0.92);border:1px solid #C9BA9B;
                     border-radius:8px;padding:7px 8px;text-align:center;opacity:{opacity};">
-          <div style="font-size:10px;color:#5C3D1E;font-weight:700;font-family:Georgia,serif;
-                      margin-bottom:3px;letter-spacing:.06em;">WIND ROSE</div>
-          <div style="font-size:8px;color:#5C3D1E;font-family:Georgia,serif;
-                      margin-bottom:3px;letter-spacing:.06em;">Dieprivier station <br> (~ 95km towords NE)</div>
+          
           <img src="data:image/png;base64,{wind_b64}" width="150"/>
           <div style="margin-top:4px;font-size:8px;color:#5C3D1E;font-weight:600;">Wind speed (m/s)</div>
           <div style="display:flex;align-items:center;margin-top:2px;gap:2px;">
@@ -1036,6 +1139,54 @@ def build_map(
         </div>"""
         m.get_root().html.add_child(folium.Element(html))
 
+  # 7b. SOS 1 WEST WIND ROSE OVERLAY (at geographic location) - controlled by In-situ checkbox
+    if show_hobo_wind and hobo_df is not None:
+        
+        # Filter SOS 1 WEST data for the ENTIRE dataset (no date filtering)
+        hobo_sub = hobo_df
+        
+        if not hobo_sub.empty:
+            # Build wind rose with transparent background
+            fig = plt.figure(figsize=(1.5, 1.5), facecolor='none')
+            ax = WindroseAxes.from_ax(fig=fig)
+            ax.bar(hobo_sub["direction"], hobo_sub["speed_ms"],
+                normed=True, opening=0.8, edgecolor="#050505", linewidth=0.3,
+                cmap=plt.cm.YlOrBr, bins=np.arange(0, 12, 2))
+            ax.set_facecolor('none')
+            ax.set_xticks([])
+            ax.set_xticklabels([])
+            ax.set_yticks([])
+            ax.set_yticklabels([])
+            ax.legend().set_visible(False)
+            ax.set_title('')
+            ax.grid(False)
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+            fig.patch.set_alpha(0)
+            
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", dpi=100, bbox_inches='tight', transparent=True)
+            plt.close(fig)
+            hobo_b64 = base64.b64encode(buf.getvalue()).decode()
+            
+            # Use the correct coordinates
+            hobo_lat, hobo_lon = utm_to_latlon(533272.70433545333799, 7262367.944419549778104)
+            
+            # Add marker
+            folium.Marker(
+                location=[hobo_lat, hobo_lon],
+                icon=folium.DivIcon(
+                    html=f'''
+                    <div style="transform: translate(-50%, -50%);">
+                        <img src="data:image/png;base64,{hobo_b64}" width="55"/>
+                    </div>
+                    ''',
+                    icon_size=(55, 55),
+                    icon_anchor=(27, 27)
+                ),
+                tooltip="SOS 1 WEST Weather Station (16 - 20 March 2026)"
+            ).add_to(m)
+
     # 8. LEGEND
     sections = []
 
@@ -1048,7 +1199,7 @@ def build_map(
                 <rect x="0" y="0" width="24" height="10" fill="#C49A6C" opacity="0.5"
                       stroke="#C49A6C" stroke-width="1" rx="2"/>
             </svg>
-            <span>Playa (Highest Purity)</span>
+            <span>Playa</span>
         </div>""" if show_playa else ""
         sections.append(f"""
         <div class="ls">
@@ -1225,6 +1376,27 @@ def build_map(
             </div>
         </div>""")
 
+    # NEW: SOS 1 WEST Wind Rose Legend Entry
+    if show_hobo_wind and hobo_df is not None:
+        sections.append("""
+        <div class="ls">
+            <div class="lt">SOS 1 WEST Weather Station</div>
+            <div class="lr">
+                <svg width="24" height="10">
+                    <circle cx="12" cy="5" r="4" fill="#8B5E3C" opacity="0.8"/>
+                </svg>
+                <span>Wind Rose (March 2026)</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:3px;margin:4px 0 0 0;">
+                <span style="font-size:7px;color:#5C3D1E;">0</span>
+                <div style="flex:1;height:5px;background:linear-gradient(to right,
+                    #FFFFCC,#FFEDA0,#FED976,#FEB24C,#FD8D3C,#FC4E2A,#E31A1C,#B10026);
+                    border-radius:2px;"></div>
+                <span style="font-size:7px;color:#5C3D1E;">10+</span>
+            </div>
+        </div>
+        """)
+
     if sections:
         legend_html = f"""
         <style>
@@ -1266,13 +1438,29 @@ def build_map(
 def movement_trend_fig(var_gdf, nearest_pid):
     trend = var_gdf[var_gdf["point_id"] == nearest_pid].sort_values("date")
     fig, ax = _dark_fig(3.6, 1.9)
+    
+    # Split data by season
+    mask_blue = trend["date"].dt.month.isin([4, 5, 6, 7, 8, 9])  # April-September
+    mask_orange = trend["date"].dt.month.isin([10, 11, 12, 1, 2, 3])  # October-March
+    
+    # Plot April-September in blue
+    ax.scatter(trend.loc[mask_blue, "date"], trend.loc[mask_blue, "distance_m"],
+               color="#2E86C1", s=25, zorder=5, label="Apr-Sep")
+    
+    # Plot October-March in orange
+    ax.scatter(trend.loc[mask_orange, "date"], trend.loc[mask_orange, "distance_m"],
+               color="#E67E22", s=25, zorder=5, label="Oct-Mar")
+    
+    # Connect points with line
     ax.plot(trend["date"], trend["distance_m"],
-            marker="o", markersize=3, color="#8B5E3C", linewidth=1.4)
+            marker="", color="#C9BA9B", linewidth=1.4, alpha=0.5)
+    
     ax.axhline(0, color="#C9BA9B", linestyle="--", linewidth=0.8)
     ax.set_xlabel("Date", fontsize=7)
     ax.set_ylabel("Distance (m)", fontsize=7)
     ax.set_title(f"Point {nearest_pid}", fontsize=8)
     ax.grid(color="#C9BA9B", linewidth=0.4, linestyle=":")
+    ax.legend(fontsize=6, loc="best")
     fig.autofmt_xdate(rotation=30, ha="right")
     fig.tight_layout(pad=0.4)
     return fig
@@ -1326,6 +1514,15 @@ def render_dashboard_layout_1(map_col, right_col):
         st.error(f"Could not load wind data: {e}")
         wind_df = pd.DataFrame()
 
+    try:
+        hobo_df = load_hobo_wind_data()
+        hobo_lat, hobo_lon = utm_to_latlon(533272.70433545333799, 7262367.944419549778104)
+    except Exception as e:
+        hobo_df = None
+        hobo_lat = None
+        hobo_lon = None
+        st.warning(f"Could not load SOS 1 WEST data: {e}")
+
     base_metadata = load_base_imagery_metadata()
 
     if "dune_names" not in st.session_state:
@@ -1344,7 +1541,7 @@ def render_dashboard_layout_1(map_col, right_col):
         
         preset = st.radio(
             "Select View Mode",
-            ["Compare", "Monthly", "Annual", "Custom"],
+            ["Compare", "Annual", "Monthly", "Custom"],
             key="b_preset",
             label_visibility="collapsed",
             horizontal=True
@@ -1438,7 +1635,8 @@ def render_dashboard_layout_1(map_col, right_col):
             
             selected_years = list(set([date_a.year, date_b.year]))
             selected_months = list(set([date_a.strftime("%B"), date_b.strftime("%B")]))
-            wind_pct, f_wind = wind_completeness(wind_df, selected_years, selected_months)
+            wind_pct, f_wind = wind_completeness_daterange(wind_df, date_a, date_b)
+
             
         else:  # Custom
             # Full control: year selection + month selection
@@ -1484,12 +1682,12 @@ def render_dashboard_layout_1(map_col, right_col):
         # ── LAYERS ──────────────────────────────────────────────────────────────
         st.markdown('<div class="right-panel-header">Layers</div>', unsafe_allow_html=True)
         with st.expander("  Remote Sensing Layers", expanded=False):
-            disable_movement = preset in ["Annual", "Monthly", "Custom"]
             show_crests = st.checkbox("Crest lines", value=True, key="b_show_crests")
             show_gap_fills = st.checkbox("  Gap fills", value=False, disabled=not show_crests, key="b_show_gap_fills")
-            show_movement = st.checkbox("Crest Movement", value=False, disabled=disable_movement, key="b_show_movement")
-            if disable_movement:
-                st.caption("Crest movement only available in Compare presets.")
+            if preset == "Compare":
+                show_movement = st.checkbox("Crest Movement", value=False, key="b_show_movement")
+            else:
+                show_movement = False
             show_playa = st.checkbox("Playa (Highest Purity)", value=True, key="b_show_playa")
             show_wind = st.checkbox("Wind rose overlay", value=True, key="b_show_wind")
             show_uncertainty = st.checkbox("Displacement Error Lines (Only March 2026)", value=False, key="b_show_uncertainty")
@@ -1504,6 +1702,7 @@ def render_dashboard_layout_1(map_col, right_col):
             show_geomorph_lines = st.checkbox("Erosion fossil dune / vlei deposits", value=False, key="b_show_geomorph_lines")
             show_geomorph_points = st.checkbox("Sediment Sample Points", value=False, key="b_show_geomorph_points")
             show_geomorph_polygons = st.checkbox("Recent Vlei / Fossil Dunes", value=False, key="b_show_geomorph_polygons")
+            show_hobo_wind = st.checkbox("SOS 1 WEST Weather Station Wind Rose", value=False, key="b_show_hobo_wind")
 
         st.markdown('<div class="right-panel-header">Opacity</div>', unsafe_allow_html=True)
         opacity = st.slider("Layer opacity", 0.2, 1.0, 0.75, 0.05,
@@ -1566,6 +1765,10 @@ def render_dashboard_layout_1(map_col, right_col):
             gnss_points_gdf=gnss_points_gdf,
             gnss_lines_gdf=gnss_lines_gdf,
             geomorph_data=geomorph_data,
+            hobo_df=hobo_df, 
+            hobo_lat=hobo_lat, 
+            hobo_lon=hobo_lon,  
+            show_hobo_wind=show_hobo_wind,
         )
 
         # ── ZOOM TO FEATURE (executed after map creation) ──────────────
@@ -1585,13 +1788,96 @@ def render_dashboard_layout_1(map_col, right_col):
 
     # ── RIGHT COLUMN ─────────────────────────────────────────────────────────
     with right_col:
+        
+        if preset in ["Annual", "Monthly"]:
+            if f_crest.empty:
+                st.caption("No crest data available for wind roses.")
+            elif wind_df.empty:
+                st.caption("No wind data available.")
+            else:
+                pairs = get_wind_rose_pairs(f_crest, preset, selected_years, selected_months)
+                
+                if not pairs:
+                    st.caption("Not enough consecutive dates to show wind roses.")
+                else:
+                    st.markdown('<div class="right-panel-header">Wind Between Crests</div>', unsafe_allow_html=True)
+                    
+                    # Show wind roses in 2-column grid
+                    cols = st.columns(2)
+                    roses_shown = 0
+                    
+                    for idx, (date_a, date_b, label) in enumerate(pairs):
+                        img_b64, has_data = build_simple_wind_rose(wind_df, date_a, date_b)
+                        
+                        col_idx = idx % 2
+                        with cols[col_idx]:
+                            st.markdown(
+                                f'<div style="text-align:center;font-size:0.6rem;color:#5C3D1E;font-weight:600;">{label}</div>',
+                                unsafe_allow_html=True
+                            )
+                            if has_data and img_b64:
+                                st.image(f"data:image/png;base64,{img_b64}", use_container_width=True)
+                                roses_shown += 1
+                            else:
+                                st.markdown(
+                                    f'<div style="text-align:center;font-size:0.55rem;color:#8B7A6A;padding:10px 0;border:1px dashed #C9BA9B;border-radius:4px;">No wind data</div>',
+                                    unsafe_allow_html=True
+                                )
+                        
+                        # New row after every 2 items
+                        if idx % 2 == 1:
+                            cols = st.columns(2)
+
+                    if roses_shown > 0:
+                        st.markdown("""
+                            <div style="font-size:7px;color:#5C3D1E;font-weight:600;text-align:center;">Wind speed (m/s)</div>
+                            <div style="display:flex;align-items:center;gap:4px;padding:0 5px;">
+                                <span style="font-size:6px;">0</span>
+                                <div style="flex:1;height:5px;background:linear-gradient(to right,#FFFFCC,#FFEDA0,#FED976,#FEB24C,#FD8D3C,#FC4E2A,#E31A1C,#B10026);border-radius:2px;"></div>
+                                <span style="font-size:6px;">10+</span>
+                            </div>
+                        """, unsafe_allow_html=True)
+                    
+                    if roses_shown == 0:
+                        st.caption("No wind data available for any period.")
+
+                    
+        
+        # Movement trend - only for Compare preset
+        elif preset == "Compare":
+            # movement trend
+            st.markdown('<div class="right-panel-header">Movement Trend</div>', unsafe_allow_html=True)
+
+            if (map_data and map_data.get("last_object_clicked")
+                    and show_movement and not var_gdf.empty):
+                click = map_data["last_object_clicked"]
+                lat, lon = click.get("lat"), click.get("lng")
+                if lat and lon:
+                    click_pt = Point(lon, lat)
+                    var_proj = var_gdf.to_crs("EPSG:3857")
+                    click_gdf = gpd.GeoDataFrame(
+                        geometry=[click_pt], crs="EPSG:4326"
+                    ).to_crs("EPSG:3857")
+                    dists = var_proj.geometry.distance(click_gdf.geometry.iloc[0])
+                    nearest_pid = var_gdf.iloc[dists.idxmin()]["point_id"]
+
+                    fig_ts = movement_trend_fig(var_gdf, nearest_pid)
+                    st.pyplot(fig_ts, use_container_width=True)
+                    plt.close(fig_ts)
+                else:
+                    st.caption("Click a point on the map.")
+            else:
+                st.caption("Click a movement point on the map. (Only available in Compare preset)")
+
         st.markdown('<div class="right-scroll">', unsafe_allow_html=True)
 
         # Wind coverage
-        st.markdown('<div class="right-panel-header">Wind Coverage</div>', unsafe_allow_html=True)
+        st.markdown('<div class="right-panel-header">Wind Coverage <div style="font-size:8px;color:#5C3D1E;font-family:Georgia,serif;margin-bottom:3px;letter-spacing:.06em;">Dieprivier station </div></div>', unsafe_allow_html=True)
         if not wind_df.empty:
             try:
-                fig_g = build_gantt_figure(wind_df, selected_years, selected_months)
+                # Always show full coverage (all years, all months) regardless
+                # of the current preset/selection.
+                fig_g = build_gantt_figure(wind_df, ALL_YEARS, MONTH_NAMES)
                 st.pyplot(fig_g, use_container_width=True)
                 plt.close(fig_g)
                 if wind_pct < WIND_WARN_PCT:
@@ -1603,39 +1889,6 @@ def render_dashboard_layout_1(map_col, right_col):
                 st.caption("Wind coverage chart unavailable for this selection.")
         else:
             st.caption("No wind data loaded.")
-        
-        # movement trend
-        st.markdown('<div class="right-panel-header">movement Trend</div>', unsafe_allow_html=True)
-
-        if (map_data and map_data.get("last_object_clicked")
-                and show_movement and not var_gdf.empty):
-            click = map_data["last_object_clicked"]
-            lat, lon = click.get("lat"), click.get("lng")
-            if lat and lon:
-                click_pt = Point(lon, lat)
-                var_proj = var_gdf.to_crs("EPSG:3857")
-                click_gdf = gpd.GeoDataFrame(
-                    geometry=[click_pt], crs="EPSG:4326"
-                ).to_crs("EPSG:3857")
-                dists = var_proj.geometry.distance(click_gdf.geometry.iloc[0])
-                nearest_pid = var_gdf.iloc[dists.idxmin()]["point_id"]
-
-                fig_ts = movement_trend_fig(var_gdf, nearest_pid)
-                st.pyplot(fig_ts, use_container_width=True)
-                plt.close(fig_ts)
-            else:
-                st.caption("Click a point on the map.")
-        else:
-            st.caption("Click a movement point on the map. (Only available in Compare preset)")
-
-        # Uncertainty histogram
-        st.markdown('<div class="right-panel-header">Uncertainty</div>', unsafe_allow_html=True)
-        if not unc_gdf.empty and "error_m" in unc_gdf.columns:
-            fig_h = uncertainty_hist_fig(unc_gdf)
-            st.pyplot(fig_h, use_container_width=True)
-            plt.close(fig_h)
-        else:
-            st.caption("No uncertainty data.")
 
         st.markdown('<div class="right-panel-header">Export</div>', unsafe_allow_html=True)
 
@@ -1746,7 +1999,7 @@ def main():
 
     st.divider()
 
-    map_col, right_col = st.columns([4, 1])
+    map_col, right_col = st.columns([4, 1.3])
     render_dashboard_layout_1(map_col, right_col)
     #render_feedback_form()
 

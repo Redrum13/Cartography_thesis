@@ -20,8 +20,8 @@ from skimage import measure, morphology
 CONFIGS = {
     "high_purity": {
         "si1_percentile": 97,
-        "min_size_pixels": 150,
-        "min_area_m2": 1500,
+        "min_size_pixels": 100,
+        "min_area_m2": 1000,
         "chaikin_iterations": 3,
     },
     "balanced": {
