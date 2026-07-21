@@ -4,11 +4,8 @@ backgroundColor = "#F5F0E8"
 secondaryBackgroundColor = "#EDE6D3"
 textColor = "#3B2F1E"
 font = "sans-serif"
-baseFontSize = 16
+baseFontSize = 14
 
-[theme.sidebar]
-backgroundColor = "#EDE6D3"
-textColor = "#3B2F1E"
 
 [browser]
 gatherUsageStats = false
