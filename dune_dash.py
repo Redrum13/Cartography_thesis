@@ -1668,8 +1668,8 @@ def render_dashboard_layout_1(map_col, right_col):
 
         # Custom zoom targets with coordinates (convert DMS to decimal)
         custom_targets = [
-            {"name": "Near Dune Corridor", "lat": -24.749, "lon": 15.397, "zoom": 20},
-            {"name": "North NSS", "lat": -23.790, "lon": 15.189, "zoom": 20},
+            {"name": "Near Dune Corridor (only insitu layers)", "lat": -24.749, "lon": 15.397, "zoom": 20},
+            {"name": "North NSS (only insitu layers)", "lat": -23.790, "lon": 15.189, "zoom": 20},
         ]
 
         # Create zoom options list
