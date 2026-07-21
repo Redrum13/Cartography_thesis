@@ -861,30 +861,7 @@ def build_map(
                 ),
             ).add_to(m)
 
-    # 4. CREST LINES
-    if show_crests and not crest_gdf.empty:
-        dates_sorted  = sorted(crest_gdf["date"].unique())
-        date_color_map = dict(zip(
-            [str(d) for d in dates_sorted], date_colormap(dates_sorted)
-        ))
-        for _, row in crest_gdf.iterrows():
-            if row.get("is_gap_fill", False) and not show_gap_fills:
-                continue
-            c    = date_color_map.get(str(row["date"]), "#C9BA9B")
-            style = {
-                "color": c, 
-                "weight": 2, 
-                "opacity": opacity*0.5 if row.get("is_gap_fill", False) else opacity, 
-                "dashArray": "8 4" if row.get("is_gap_fill", False) else None}
-            folium.GeoJson(
-                row["geometry"].__geo_interface__,
-                style_function=lambda f, s=style: s,
-                tooltip=folium.Tooltip(
-                    f"<b>Crest</b><br>Date: {row['date'].date()}<br>"
-                    f"Length: {row.get('length_m', 0):.0f} m"
-                    + (" [gap fill]" if row.get("is_gap_fill") else "")
-                ),
-            ).add_to(m)
+   
 
     # 5. movement POINTS — drawn as directional arrows that follow the perpendicular
     #    orientation. When diff > 0 (advance), arrow points in the perpendicular direction
@@ -938,7 +915,7 @@ def build_map(
                 arrow_deg = (orientation_lookup[pid] + 180) % 360
 
             arrow_svg = f"""
-            <div style="width:{size}px;height:{size}px;transform:rotate({arrow_deg-90}deg);">
+            <div style="width:{size}px;height:{size}px;transform:rotate({arrow_deg-90}deg);opacity:0.7;">
             <svg width="{size}" height="{size}" viewBox="0 0 24 24">
                 <line x1="0" y1="12" x2="19" y2="12" stroke="{color}" stroke-width="2" stroke-linecap="round"/>
                 <polygon points="17,8 23,12 17,16" fill="{color}"/>
@@ -959,6 +936,32 @@ def build_map(
                     f"Orientation: {orientation_lookup[pid]:.1f}°<br>"
                     f"<b>Change: {diff:+.2f} m</b> "
                     f"({'advance' if diff >= 0 else 'retreat'})"
+                ),
+            ).add_to(m)
+
+
+     # 4. CREST LINES
+    if show_crests and not crest_gdf.empty:
+        dates_sorted  = sorted(crest_gdf["date"].unique())
+        date_color_map = dict(zip(
+            [str(d) for d in dates_sorted], date_colormap(dates_sorted)
+        ))
+        for _, row in crest_gdf.iterrows():
+            if row.get("is_gap_fill", False) and not show_gap_fills:
+                continue
+            c    = date_color_map.get(str(row["date"]), "#C9BA9B")
+            style = {
+                "color": c, 
+                "weight": 2, 
+                "opacity": opacity*0.5 if row.get("is_gap_fill", False) else opacity, 
+                "dashArray": "8 4" if row.get("is_gap_fill", False) else None}
+            folium.GeoJson(
+                row["geometry"].__geo_interface__,
+                style_function=lambda f, s=style: s,
+                tooltip=folium.Tooltip(
+                    f"<b>Crest</b><br>Date: {row['date'].date()}<br>"
+                    f"Length: {row.get('length_m', 0):.0f} m"
+                    + (" [gap fill]" if row.get("is_gap_fill") else "")
                 ),
             ).add_to(m)
 
@@ -1096,7 +1099,7 @@ def build_map(
             if 'Feature' in gdf_polygons.columns:
                 type_colors = {
                     'Fossil Dune': '#6C5CE7',   # Purple
-                    'Recent Vlei': '#A8E6CF'    # Light green
+                    'Recent Vlei': "#0CC883"    # Light green
                 }
                 default_color = '#95A5A6'
                 for _, row in gdf_polygons.iterrows():
@@ -1438,22 +1441,20 @@ def build_map(
 def movement_trend_fig(var_gdf, nearest_pid):
     trend = var_gdf[var_gdf["point_id"] == nearest_pid].sort_values("date")
     fig, ax = _dark_fig(3.6, 1.9)
+    mask_winter = trend["date"].dt.month.isin([4, 5, 6, 7, 8, 9])   # Winter (Apr-Sep) - squares
+    mask_summer = trend["date"].dt.month.isin([10, 11, 12, 1, 2, 3]) # Summer (Oct-Mar) - circles
     
-    # Split data by season
-    mask_blue = trend["date"].dt.month.isin([4, 5, 6, 7, 8, 9])  # April-September
-    mask_orange = trend["date"].dt.month.isin([10, 11, 12, 1, 2, 3])  # October-March
+    # Plot Winter (Apr-Sep) as squares
+    ax.scatter(trend.loc[mask_winter, "date"], trend.loc[mask_winter, "distance_m"],
+               color="#2E86C1", s=5, marker='d', zorder=5, label="Winter (Apr-Sep)")
     
-    # Plot April-September in blue
-    ax.scatter(trend.loc[mask_blue, "date"], trend.loc[mask_blue, "distance_m"],
-               color="#2E86C1", s=25, zorder=5, label="Apr-Sep")
-    
-    # Plot October-March in orange
-    ax.scatter(trend.loc[mask_orange, "date"], trend.loc[mask_orange, "distance_m"],
-               color="#E67E22", s=25, zorder=5, label="Oct-Mar")
+    # Plot Summer (Oct-Mar) as circles
+    ax.scatter(trend.loc[mask_summer, "date"], trend.loc[mask_summer, "distance_m"],
+               color="#E67E22", s=5, marker='o', zorder=5, label="Summer (Oct-Mar)")
     
     # Connect points with line
     ax.plot(trend["date"], trend["distance_m"],
-            marker="", color="#C9BA9B", linewidth=1.4, alpha=0.5)
+            marker="", color="#C9BA9B", linewidth=1, alpha=0.5)
     
     ax.axhline(0, color="#C9BA9B", linestyle="--", linewidth=0.8)
     ax.set_xlabel("Date", fontsize=7)
@@ -1665,11 +1666,20 @@ def render_dashboard_layout_1(map_col, right_col):
         dune_names = st.session_state.get("dune_names", [])
         DEFAULT_DUNE = "The Star Dune"
 
-        zoom_options = ["All Features"] + dune_names
+        # Custom zoom targets with coordinates (convert DMS to decimal)
+        custom_targets = [
+            {"name": "Near Dune Corridor", "lat": -24.749, "lon": 15.397, "zoom": 20},
+            {"name": "North NSS", "lat": -23.790, "lon": 15.189, "zoom": 20},
+        ]
+
+        # Create zoom options list
+        zoom_options = ["All Features"] + [t["name"] for t in custom_targets] + dune_names
+
         default_index = (
             zoom_options.index(DEFAULT_DUNE)
             if DEFAULT_DUNE in zoom_options else 0
         )
+
         zoom_to = st.selectbox(
             "Zoom to feature", zoom_options,
             index=default_index,
@@ -1685,7 +1695,7 @@ def render_dashboard_layout_1(map_col, right_col):
             show_crests = st.checkbox("Crest lines", value=True, key="b_show_crests")
             show_gap_fills = st.checkbox("  Gap fills", value=False, disabled=not show_crests, key="b_show_gap_fills")
             if preset == "Compare":
-                show_movement = st.checkbox("Crest Movement", value=False, key="b_show_movement")
+                show_movement = st.checkbox("Crest Movement", value=True, key="b_show_movement")
             else:
                 show_movement = False
             show_playa = st.checkbox("Playa (Highest Purity)", value=True, key="b_show_playa")
@@ -1773,11 +1783,24 @@ def render_dashboard_layout_1(map_col, right_col):
 
         # ── ZOOM TO FEATURE (executed after map creation) ──────────────
         zoom_to = st.session_state.get("zoom_to", "All Features")
-        if zoom_to != "All Features" and not f_crest.empty and "dune_name" in f_crest.columns:
-            geoms = f_crest[f_crest["dune_name"] == zoom_to].geometry
-            if not geoms.empty:
-                b = geoms.total_bounds
-                folium_map.fit_bounds([[b[1], b[0]], [b[3], b[2]]])
+        if zoom_to != "All Features":
+            found = False
+            
+            # Check custom targets first
+            for target in custom_targets:
+                if target["name"] == zoom_to:
+                    folium_map.location = [target["lat"], target["lon"]]
+                    folium_map.zoom_start = target["zoom"]
+                    found = True
+                    break
+            
+            # If not found in custom targets, try dune names from crest data
+            if not found and not f_crest.empty and "dune_name" in f_crest.columns:
+                geoms = f_crest[f_crest["dune_name"] == zoom_to].geometry
+                if not geoms.empty:
+                    b = geoms.total_bounds
+                    folium_map.fit_bounds([[b[1], b[0]], [b[3], b[2]]])
+                    found = True
 
         map_data = st_folium(
             folium_map, width="100%", height=700,
