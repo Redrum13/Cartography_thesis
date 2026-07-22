@@ -1960,6 +1960,8 @@ def render_feedback_form():
 
 def main():
 
+    st.divider()
+
     map_col, right_col = st.columns([4, 1.3])
     render_dashboard_layout_1(map_col, right_col)
     #render_feedback_form()
