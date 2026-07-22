@@ -1788,7 +1788,7 @@ def render_dashboard_layout_1(map_col, right_col):
                     found = True
 
         map_data = st_folium(
-            folium_map, width="100%", height=700,
+            folium_map, width="100%", height=None,
             returned_objects=["last_object_clicked"],
             key="b_folium_map"
         )
