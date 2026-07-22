@@ -261,21 +261,6 @@ hr { border-color: var(--border-color) !important; margin: 4px 0; }
     border-bottom: 3px solid var(--accent);
 }
 
-/* Add title to the top bar next to the deploy button */
-[data-testid="stHeader"]::before {
-    content: "Star Dune Dynamics";
-    position: absolute;
-    left: 20%;
-    transform: translateX(-50%);
-    color: var(--text-primary);
-    font-family: 'Georgia', serif;
-    font-size: 2rem;
-    font-weight: 600;
-    letter-spacing: .02em;
-    padding: 10px 0;
-    pointer-events: none; /* Allows clicking through to buttons */
-}
-
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -1974,53 +1959,6 @@ def render_feedback_form():
 # ------------------------------------------------------------------------------
 
 def main():
-
-    with st.expander("  About this dashboard", expanded=False):
-        st.markdown(
-                """
-                <div style="font-family:'Segoe UI',sans-serif;font-size:.83rem;
-                            color:#3B2F1E;line-height:1.7;">
-
-                <p>This dashboard monitors the aeolian landscape near Sossusvlei in the
-                Namib Desert between 2017 and 2026, covering the active dune season
-                (May–August) each year.</p>
-
-                <p><strong style="color:#5C3D1E;">Data sources</strong></p>
-                <ul style="margin:0 0 10px 0;padding-left:18px;">
-                    <li><strong>Base Imagery:</strong> from Sentinel-2 multispectral imagery.</li>
-                    <li><strong>Crest lines:</strong> extracted from Sentinel-2 multispectral imagery
-                    using automated skeletonization and canny edge-detection, with gap-filling applied
-                    where weak gradient magnitude interrupted acquisition.</li>
-                    <li><strong>Playa polygons:</strong> delineated from Sentinel-2 using a salinity index
-                    (SI-1 = √(Blue * Red)), retaining only pixels above the 97th percentile of SI-1 values
-                    per scene. This high-purity threshold isolates the brightest, most saline playa surface,
-                    excluding mixed or transitional pixels at the playa margin.</li>
-                    <li><strong>Wind data:</strong> daily wind speed and direction records from
-                    Dieprivier weather station, providing context for dune activity patterns.</li>
-                    <li><strong>GNSS / reference crests:</strong> field-surveyed GNSS points for
-                    <em>The Star Dune</em>; manually digitized reference crests for
-                    <em>Big Mommy Dune</em> and <em>Inverted Y Dune</em>.</li>
-                    <li><strong>In-situ data:</strong> GNSS survey points, GNSS crest/edge/bowl lines, 
-                    and geomorphology features (lines, points, polygons) collected during field campaigns.</li>
-                </ul>
-
-                <p><strong style="color:#5C3D1E;">A note on uncertainty</strong></p>
-                <p>In this dashboard, <em>uncertainty</em> refers to the perpendicular distance between
-                a satellite-derived crest line and its corresponding reference position based on either a
-                field-surveyed GNSS point (<em>The Star Dune</em>) or a manually digitized crest
-                (<em>Big Mommy Dune</em>, <em>Inverted Y Dune</em>). This metric captures the combined
-                effect of image resolution, atmospheric conditions, and extraction method error.
-                Lines are colour-coded: <span style="color:#31A857;font-weight:700;">green</span> &lt; 2 m,
-                <span style="color:#B8A800;font-weight:700;">yellow</span> 2–6 m,
-                <span style="color:#C7400F;font-weight:700;">red</span> &gt; 6 m.</p>
-
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-
-    st.divider()
 
     map_col, right_col = st.columns([4, 1.3])
     render_dashboard_layout_1(map_col, right_col)
