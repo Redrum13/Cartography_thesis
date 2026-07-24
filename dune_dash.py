@@ -657,16 +657,36 @@ def build_map(
                     tooltip=folium.Tooltip(f"<b>Geomorph Polygon</b><br>ID: {row.get('Feature', 'Unknown')}")
                 ).add_to(m)
     
-    # 7. WIND ROSE OVERLAY
-    if show_wind and wind_b64 and preset == "Compare":
+    # 7. WIND ROSE OVERLAY - Now works for ALL presets
+    if show_wind and wind_b64:
         badge = ""
         if wind_completeness_pct < WIND_WARN_PCT:
             badge = f'<div style="background:#FFF3CD;color:#6B4E00;font-size:9px;padding:2px 5px;border-radius:3px;margin-top:3px;font-weight:700;">! {wind_completeness_pct*100:.0f}% coverage</div>'
+        
+        # Format date label based on preset
+        if preset == "Compare":
+            date_label = f"{date_a.strftime('%b %Y')} – {date_b.strftime('%b %Y')}"
+        elif preset == "Annual":
+            if date_a and date_b:
+                if date_a.year == date_b.year:
+                    date_label = f"{date_a.strftime('%b')}–{date_b.strftime('%b %Y')}"
+                else:
+                    date_label = f"{date_a.strftime('%b %Y')}–{date_b.strftime('%b %Y')}"
+            else:
+                date_label = "Annual"
+        elif preset == "Monthly":
+            if date_a and date_b:
+                date_label = f"{date_a.strftime('%b %Y')} – {date_b.strftime('%b %Y')}"
+            else:
+                date_label = "Monthly"
+        else:
+            date_label = ""
+        
         html = f"""
         <div style="position:fixed;top:10px;right:10px;z-index:9999;
                     background:rgba(253,248,240,0.92);border:1px solid #C9BA9B;
                     border-radius:8px;padding:7px 8px;text-align:center;opacity:{opacity};">
-          <div style="font-size:8px;color:#5C3D1E;font-weight:600;margin-bottom:3px;">{date_a.strftime('%b %Y')} – {date_b.strftime('%b %Y')}</div>
+          <div style="font-size:8px;color:#5C3D1E;font-weight:600;margin-bottom:3px;">{date_label}</div>
           <img src="data:image/png;base64,{wind_b64}" width="150"/>
           <div style="margin-top:4px;font-size:8px;color:#5C3D1E;font-weight:600;">Wind speed (m/s)</div>
           <div style="display:flex;align-items:center;margin-top:2px;gap:2px;">
@@ -983,6 +1003,7 @@ def render_dashboard_layout_1(map_col, right_col):
     
     date_a = None
     date_b = None
+    wind_pct = 0
     
     # ── LEFT PANEL ──────────────────────────────────────────────────────────
     with st.sidebar:
@@ -1064,7 +1085,40 @@ def render_dashboard_layout_1(map_col, right_col):
             selected_years = list(set([date_a.year, date_b.year]))
             selected_months = list(set([date_a.strftime("%B"), date_b.strftime("%B")]))
             wind_pct, f_wind = wind_completeness_daterange(wind_df, date_a, date_b)
-        
+
+        else:  # Custom preset
+            # For Custom preset, use range sliders similar to Annual/Monthly
+            c1, c2 = st.columns(2)
+            with c1:
+                # Year range slider
+                sorted_years = sorted(crest_gdf["year"].unique()) if not crest_gdf.empty else ALL_YEARS
+                year_range = st.select_slider(
+                    "Select Year Range",
+                    options=sorted_years,
+                    value=(sorted_years[0], sorted_years[-1] if len(sorted_years) > 1 else sorted_years[0]),
+                    key="b_custom_year_range"
+                )
+                start_year_idx = sorted_years.index(year_range[0])
+                end_year_idx = sorted_years.index(year_range[1])
+                selected_years = sorted_years[start_year_idx:end_year_idx + 1]
+            
+            with c2:
+                # Month range slider
+                month_range = st.select_slider(
+                    "Select Month Range",
+                    options=MONTH_NAMES,
+                    value=(MONTH_NAMES[4], MONTH_NAMES[7]),  # May-August
+                    key="b_custom_month_range"
+                )
+                start_idx = MONTH_NAMES.index(month_range[0])
+                end_idx = MONTH_NAMES.index(month_range[1])
+                selected_months = MONTH_NAMES[start_idx:end_idx + 1]
+            
+            # No date_a/date_b for Custom - will be set from filtered data
+            date_a = None
+            date_b = None
+            wind_pct = 0
+            f_wind = pd.DataFrame()
         # ── ZOOM TO FEATURE ─────────────────────────────────────────────
         st.markdown('<div class="right-panel-header">Zoom to Feature</div>', unsafe_allow_html=True)
         dune_names = st.session_state.get("dune_names", [])
@@ -1130,27 +1184,79 @@ def render_dashboard_layout_1(map_col, right_col):
         st.markdown('<div class="right-panel-header">Opacity</div>', unsafe_allow_html=True)
         opacity = st.slider("Layer opacity", 0.2, 1.0, 0.75, 0.05, label_visibility="collapsed", key="b_opacity_slider")
     
-    # ── FILTER DATA ───────────────────────────────────────────────────────────
+   # ── FILTER DATA ───────────────────────────────────────────────────────────
     if preset == "Compare":
         f_crest = crest_gdf[crest_gdf["date"].isin([date_a, date_b])].copy()
         f_playa = playa_gdf[playa_gdf["date"].isin([date_a, date_b])].copy()
         f_var = var_gdf[var_gdf["date"].isin([date_a, date_b])].copy()
-    else:
+        wind_b64 = None
+        if show_wind and not f_wind.empty and wind_pct >= WIND_HIDE_PCT:
+            wind_b64 = build_wind_rose_image(f_wind)
+        elif show_wind and wind_pct < WIND_HIDE_PCT and not f_wind.empty:
+            st.warning("Wind rose hidden: data coverage below 30% for selected period.")
+            
+    elif preset == "Annual" or preset == "Monthly":
+        # Annual or Monthly preset - filter data
         m_nums = [ALL_MONTHS[m] for m in selected_months]
         def date_filter(gdf):
             if gdf.empty or "year" not in gdf.columns:
                 return gdf
             return gdf[gdf["year"].isin(selected_years) & gdf["month"].isin(m_nums)].copy()
+        
         f_crest = date_filter(crest_gdf)
         f_playa = date_filter(playa_gdf)
         f_var = var_gdf.copy()
-        wind_pct, f_wind = wind_completeness(wind_df, selected_years, selected_months)
-    
-    wind_b64 = None
-    if show_wind and not f_wind.empty and wind_pct >= WIND_HIDE_PCT:
-        wind_b64 = build_wind_rose_image(f_wind)
-    elif show_wind and wind_pct < WIND_HIDE_PCT and not f_wind.empty:
-        st.warning("Wind rose hidden: data coverage below 30% for selected period.")
+        
+        # Build combined wind rose for the entire period (for map overlay)
+        wind_b64 = None
+        wind_pct = 0
+        date_a = None
+        date_b = None
+        
+        if show_wind and not f_crest.empty:
+            date_a = f_crest["date"].min()
+            date_b = f_crest["date"].max()
+            wind_sub = wind_df[(wind_df["datetime"] >= pd.Timestamp(date_a)) & 
+                            (wind_df["datetime"] <= pd.Timestamp(date_b))]
+            if not wind_sub.empty and wind_sub["direction"].notna().sum() >= 5:
+                wind_b64 = build_wind_rose_image(wind_sub)
+                wind_pct, _ = wind_completeness_daterange(wind_df, date_a, date_b)
+            elif not wind_sub.empty:
+                st.warning("Wind rose hidden: insufficient wind data for selected period.")
+        
+        # Also get wind data for individual wind roses (right column)
+        wind_pct_individual, f_wind = wind_completeness(wind_df, selected_years, selected_months)
+
+    else:  # Custom preset - NO wind rose
+        m_nums = [ALL_MONTHS[m] for m in selected_months]
+        def date_filter(gdf):
+            if gdf.empty or "year" not in gdf.columns:
+                return gdf
+            return gdf[gdf["year"].isin(selected_years) & gdf["month"].isin(m_nums)].copy()
+        
+        f_crest = date_filter(crest_gdf)
+        f_playa = date_filter(playa_gdf)
+        f_var = var_gdf.copy()
+        
+        # No wind rose for Custom preset
+        wind_b64 = None
+        wind_pct = 0
+        date_a = None
+        date_b = None
+        
+        if show_wind and not f_crest.empty:
+            date_a = f_crest["date"].min()
+            date_b = f_crest["date"].max()
+            wind_sub = wind_df[(wind_df["datetime"] >= pd.Timestamp(date_a)) & 
+                               (wind_df["datetime"] <= pd.Timestamp(date_b))]
+            if not wind_sub.empty and wind_sub["direction"].notna().sum() >= 5:
+                wind_b64 = build_wind_rose_image(wind_sub)
+                wind_pct, _ = wind_completeness_daterange(wind_df, date_a, date_b)
+            elif not wind_sub.empty:
+                st.warning("Wind rose hidden: insufficient wind data for selected period.")
+        
+        # Also get wind data for individual wind roses (right column)
+        wind_pct_individual, f_wind = wind_completeness(wind_df, selected_years, selected_months)
     
     date_min = f_crest["date"].min() if not f_crest.empty and "date" in f_crest.columns else None
     date_max = f_crest["date"].max() if not f_crest.empty and "date" in f_crest.columns else None
@@ -1220,8 +1326,8 @@ def render_dashboard_layout_1(map_col, right_col):
                     st.markdown('<div class="right-panel-header">Wind Between Crests</div>', unsafe_allow_html=True)
                     cols = st.columns(2)
                     roses_shown = 0
-                    for idx, (date_a, date_b, label) in enumerate(pairs):
-                        img_b64, has_data = build_simple_wind_rose(wind_df, date_a, date_b)
+                    for idx, (date_a_pair, date_b_pair, label) in enumerate(pairs):
+                        img_b64, has_data = build_simple_wind_rose(wind_df, date_a_pair, date_b_pair)
                         col_idx = idx % 2
                         with cols[col_idx]:
                             st.markdown(f'<div style="text-align:center;font-size:0.6rem;color:#5C3D1E;font-weight:600;">{label}</div>', unsafe_allow_html=True)
@@ -1273,8 +1379,10 @@ def render_dashboard_layout_1(map_col, right_col):
                 fig_g = build_gantt_figure(wind_df, ALL_YEARS, MONTH_NAMES)
                 st.pyplot(fig_g, use_container_width=True)
                 plt.close(fig_g)
-                if wind_pct < WIND_WARN_PCT:
-                    st.markdown(f'<div class="warn-box">! {wind_pct*100:.0f}% coverage</div>', unsafe_allow_html=True)
+                # Use the appropriate wind_pct based on preset
+                display_pct = wind_pct if preset == "Compare" else (wind_pct_individual if 'wind_pct_individual' in locals() else 0)
+                if display_pct < WIND_WARN_PCT and display_pct > 0:
+                    st.markdown(f'<div class="warn-box">! {display_pct*100:.0f}% coverage</div>', unsafe_allow_html=True)
             except Exception:
                 st.caption("Wind coverage chart unavailable for this selection.")
         else:
