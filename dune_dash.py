@@ -1238,7 +1238,7 @@ def render_dashboard_layout_1(map_col, right_col):
         f_playa = date_filter(playa_gdf)
         f_var = var_gdf.copy()
         
-        # No wind rose for Custom preset
+        # NO wind rose for Custom preset - keep everything None
         wind_b64 = None
         wind_pct = 0
         date_a = None
