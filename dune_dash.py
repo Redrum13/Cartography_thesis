@@ -778,10 +778,10 @@ def build_map(
         <div class="ls">
         <div class="lt">Crest Movement</div>
             <div style="display:flex;align-items:center;gap:3px;margin:3px 0;width:100%;">
-                <span style="font-size:8px;color:#7B3294;">N/E</span>
+                <span style="font-size:8px;color:#7B3294;">left</span>
                 <div style="flex:1;height:6px;background:linear-gradient(to right,
                 #7B3294,#C2A5CF,#F7F7F7,#A6DBA0,#008837);border-radius:2px;"></div>
-                <span style="font-size:8px;color:#008F48;">S/W</span>
+                <span style="font-size:8px;color:#008F48;">right</span>
             </div>
         </div>
         </div>""")
