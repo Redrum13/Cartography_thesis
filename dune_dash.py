@@ -487,7 +487,7 @@ def build_map(
             folium.GeoJson(
                 row["geometry"].__geo_interface__,
                 style_function=lambda f, col=c: {"fillColor": col, "color": col, "weight": 1, "fillOpacity": opacity * 0.5},
-                tooltip=folium.Tooltip(f"<b>Playa</b><br>Date: {row['date'].date()}")
+                tooltip=folium.Tooltip(f"<b>Playa</b><br>{row['date'].date()}")
             ).add_to(m)
     
     # 4. CREST LINES with individual date colors
@@ -509,8 +509,7 @@ def build_map(
                 row["geometry"].__geo_interface__,
                 style_function=lambda f, s=style: s,
                 tooltip=folium.Tooltip(
-                    f"<b>Crest</b><br>Date: {row['date'].date()}<br>"
-                    f"Length: {row.get('length_m', 0):.0f} m"
+                    f"<b>Crest</b><br>{row['date'].date()}<br>"
                     + (" [gap fill]" if row.get("is_gap_fill") else "")
                 ),
             ).add_to(m)
