@@ -237,13 +237,16 @@ def get_base_imagery_for_date(metadata, selected_years, selected_months, date_a,
     if preset == "Compare":
         target_year, target_month = date_a.year, date_a.month
     elif preset == "Annual":
+        # Use the first selected month of the selected year
         target_year = selected_years[0] if selected_years else 2017
-        target_month = 1
-    elif preset == "Monthly":
-        target_year = 2017
         month_name = selected_months[0] if selected_months else "May"
         target_month = ALL_MONTHS[month_name]
-    else:
+    elif preset == "Monthly":
+        # Use the first selected year and selected month
+        target_year = selected_years[0] if selected_years else 2017
+        month_name = selected_months[0] if selected_months else "May"
+        target_month = ALL_MONTHS[month_name]
+    else:  # Custom
         target_year = min(selected_years) if selected_years else 2017
         target_month = ALL_MONTHS[selected_months[0]] if selected_months else 5
     
@@ -272,7 +275,7 @@ def date_colormap(dates):
     return [mcolors.to_hex(cmap(norm(t) * 0.8 + 0.2)) for t in timestamps]
 
 def diverging_color(value, vmin=-10, vmax=10):
-    """Color for movement arrows - red for retreat, blue for advance"""
+    """Color for movement arrows"""
     norm = plt.Normalize(vmin, vmax)
     r, g, b, _ = plt.cm.PRGn(norm(value))
     return mcolors.to_hex((r, g, b))
@@ -282,25 +285,26 @@ def unc_color(error_m):
     if error_m < UNC_YELLOW: return "#F7E62C"
     return "#C7400F"
 
-def wind_completeness(wind_df, years, months):
-    m_nums = [WIND_MONTHS[m] for m in months if m in WIND_MONTHS]
-    sub = wind_df[wind_df["year"].isin(years) & wind_df["month"].isin(m_nums)]
-    if sub.empty:
-        return 0.0, sub
-    expected = sum(DAYS_IN_MONTH[m] for y in years for m in months if m in DAYS_IN_MONTH)
-    if expected == 0:
-        return 0.0, sub
-    frac = min(sub["direction"].notna().sum() / expected, 1.0)
-    return frac, sub
-
-def wind_completeness_daterange(wind_df, date_a, date_b):
-    d0, d1 = sorted([pd.Timestamp(date_a), pd.Timestamp(date_b)])
-    sub = wind_df[(wind_df["datetime"] >= d0) & (wind_df["datetime"] <= d1)]
-    expected_days = (d1 - d0).days + 1
-    if expected_days <= 0:
-        return 0.0, sub
-    frac = min(sub["direction"].notna().sum() / expected_days, 1.0)
-    return frac, sub
+def wind_completeness(wind_df, years=None, months=None, date_a=None, date_b=None):
+    """Calculate wind data completeness for either year/month or date range"""
+    if date_a is not None and date_b is not None:
+        d0, d1 = sorted([pd.Timestamp(date_a), pd.Timestamp(date_b)])
+        sub = wind_df[(wind_df["datetime"] >= d0) & (wind_df["datetime"] <= d1)]
+        expected_days = (d1 - d0).days + 1
+        if expected_days <= 0:
+            return 0.0, sub
+        frac = min(sub["direction"].notna().sum() / expected_days, 1.0)
+        return frac, sub
+    else:
+        m_nums = [WIND_MONTHS[m] for m in months if m in WIND_MONTHS]
+        sub = wind_df[wind_df["year"].isin(years) & wind_df["month"].isin(m_nums)]
+        if sub.empty:
+            return 0.0, sub
+        expected = sum(DAYS_IN_MONTH[m] for y in years for m in months if m in DAYS_IN_MONTH)
+        if expected == 0:
+            return 0.0, sub
+        frac = min(sub["direction"].notna().sum() / expected, 1.0)
+        return frac, sub
 
 def build_wind_rose_image(wind_df):
     fig = plt.figure(figsize=(2.8, 2.8), facecolor=MPL_BG)
@@ -396,6 +400,13 @@ def build_gantt_figure(wind_df, years, months):
     fig.tight_layout(pad=0.4)
     return fig
 
+def date_filter(gdf, selected_years, selected_months):
+    """Generic date filter function for any GDF"""
+    if gdf.empty or "year" not in gdf.columns:
+        return gdf
+    m_nums = [ALL_MONTHS[m] for m in selected_months]
+    return gdf[gdf["year"].isin(selected_years) & gdf["month"].isin(m_nums)].copy()
+
 # ------------------------------------------------------------------------------
 # MAP BUILDER
 # ------------------------------------------------------------------------------
@@ -416,8 +427,7 @@ def build_map(
     show_geomorph_polygons=False,
     gnss_points_gdf=None, gnss_lines_gdf=None,
     geomorph_data=None,
-    hobo_df=None, hobo_lat=None, hobo_lon=None,
-    show_hobo_wind=False,
+    hobo_df=None, show_hobo_wind=False,
     custom_center=None, custom_zoom=None,
 ):
     center = custom_center if custom_center else MAP_CENTER
@@ -545,7 +555,6 @@ def build_map(
             magnitude = abs(diff)
             size = max(10, min(25, 10 + magnitude * 1.8))
             
-            # Determine direction label (N, E, S, W)
             orientation = orientation_lookup[pid]
             if orientation >= 315 or orientation < 45:
                 direction_label = "North"
@@ -583,7 +592,6 @@ def build_map(
             ).add_to(m)
     
     # 6. GNSS AND GEOMORPHOLOGY LAYERS
-    # 6a. GNSS Points
     if show_gnss_points and gnss_points_gdf is not None and not gnss_points_gdf.empty:
         type_colors = {
             'p3': '#FF6B6B', 'p4': '#FF6B6B', 'ccp': '#4ECDC4',
@@ -601,7 +609,6 @@ def build_map(
                 tooltip=folium.Tooltip(f"<b>GNSS Point</b><br>Name: {name}<br>Type: {point_type}")
             ).add_to(m)
     
-    # 6b. GNSS Lines
     if show_gnss_lines and gnss_lines_gdf is not None and not gnss_lines_gdf.empty:
         type_colors = {'crest': '#FFD93D', 'CREST': '#FFD93D', 'edge': '#6C5CE7', 'bowl': '#A8E6CF'}
         default_color = '#95A5A6'
@@ -616,7 +623,6 @@ def build_map(
                     tooltip=folium.Tooltip(f"<b>GNSS Line</b><br>Name: {row.get('name', 'Unknown')}")
                 ).add_to(m)
     
-    # 6c. Geomorphology Lines
     if show_geomorph_lines and geomorph_data is not None and 'geomorph_lines' in geomorph_data:
         gdf_lines = geomorph_data['geomorph_lines']
         if not gdf_lines.empty:
@@ -628,7 +634,6 @@ def build_map(
                     tooltip=folium.Tooltip(f"<b>Geomorph Line</b><br>ID: {row.get('id', 'Unknown')}")
                 ).add_to(m)
     
-    # 6d. Geomorphology Points
     if show_geomorph_points and geomorph_data is not None and 'geomorph_points' in geomorph_data:
         gdf_points = geomorph_data['geomorph_points']
         if not gdf_points.empty:
@@ -640,7 +645,6 @@ def build_map(
                     tooltip=folium.Tooltip(f"<b>Geomorph Point</b><br>ID: {row.get('Sample', 'Unknown')}")
                 ).add_to(m)
     
-    # 6e. Geomorphology Polygons
     if show_geomorph_polygons and geomorph_data is not None and 'geomorph_polygons' in geomorph_data:
         gdf_polygons = geomorph_data['geomorph_polygons']
         if not gdf_polygons.empty and 'Feature' in gdf_polygons.columns:
@@ -657,28 +661,22 @@ def build_map(
                     tooltip=folium.Tooltip(f"<b>Geomorph Polygon</b><br>ID: {row.get('Feature', 'Unknown')}")
                 ).add_to(m)
     
-    # 7. WIND ROSE OVERLAY - Now works for ALL presets
+    # 7. WIND ROSE OVERLAY
     if show_wind and wind_b64:
         badge = ""
         if wind_completeness_pct < WIND_WARN_PCT:
             badge = f'<div style="background:#FFF3CD;color:#6B4E00;font-size:9px;padding:2px 5px;border-radius:3px;margin-top:3px;font-weight:700;">! {wind_completeness_pct*100:.0f}% coverage</div>'
         
-        # Format date label based on preset
         if preset == "Compare":
             date_label = f"{date_a.strftime('%b %Y')} – {date_b.strftime('%b %Y')}"
-        elif preset == "Annual":
+        elif preset in ["Annual", "Monthly"]:
             if date_a and date_b:
                 if date_a.year == date_b.year:
                     date_label = f"{date_a.strftime('%b')}–{date_b.strftime('%b %Y')}"
                 else:
                     date_label = f"{date_a.strftime('%b %Y')}–{date_b.strftime('%b %Y')}"
             else:
-                date_label = "Annual"
-        elif preset == "Monthly":
-            if date_a and date_b:
-                date_label = f"{date_a.strftime('%b %Y')} – {date_b.strftime('%b %Y')}"
-            else:
-                date_label = "Monthly"
+                date_label = preset
         else:
             date_label = ""
         
@@ -700,7 +698,7 @@ def build_map(
         </div>"""
         m.get_root().html.add_child(folium.Element(html))
     
-    # 7b. SOS 1 WEST WIND ROSE
+    # 7b. SOS 1 WEST WIND ROSE (hardcoded coordinates)
     if show_hobo_wind and hobo_df is not None and not hobo_df.empty:
         fig = plt.figure(figsize=(1.5, 1.5), facecolor='none')
         ax = WindroseAxes.from_ax(fig=fig)
@@ -723,7 +721,9 @@ def build_map(
         plt.close(fig)
         hobo_b64 = base64.b64encode(buf.getvalue()).decode()
         
-        hobo_lat, hobo_lon = utm_to_latlon(533272.70433545333799, 7262367.944419549778104)
+        # Hardcoded coordinates for SOS 1 WEST
+        hobo_lat, hobo_lon = -24.756, 15.397
+        
         folium.Marker(
             location=[hobo_lat, hobo_lon],
             icon=folium.DivIcon(
@@ -736,12 +736,10 @@ def build_map(
     # 8. LEGEND
     sections = []
     
-    # Crest lines legend with individual dates (max 6)
     if show_crests and not crest_gdf.empty:
         dates_sorted = sorted(crest_gdf["date"].unique())
         date_color_map = dict(zip([str(d) for d in dates_sorted], date_colormap(dates_sorted)))
         
-        # Build legend items - max 6 dates
         legend_items = []
         display_dates = dates_sorted[:6] if len(dates_sorted) > 6 else dates_sorted
         
@@ -756,7 +754,6 @@ def build_map(
                 </div>
             """)
         
-        # Add gap fill entry
         legend_items.append(f"""
             <div class="lr">
                 <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4"
@@ -765,7 +762,6 @@ def build_map(
             </div>
         """)
         
-        # Add playa if showing
         if show_playa:
             legend_items.append("""
                 <div class="lr">
@@ -775,7 +771,6 @@ def build_map(
                 </div>
             """)
         
-        # Add the date range gradient
         early = date_min.strftime("%b %Y") if date_min else "Early"
         late = date_max.strftime("%b %Y") if date_max else "Late"
         
@@ -791,7 +786,6 @@ def build_map(
           </div>
         </div>""")
     
-    # Movement legend
     if show_movement:
         sections.append("""
         <div class="ls">
@@ -805,7 +799,6 @@ def build_map(
         </div>
         </div>""")
     
-    # Uncertainty legend
     if show_uncertainty or show_margin_buffer:
         sections.append("""
         <div class="ls">
@@ -828,7 +821,6 @@ def build_map(
             </div>""")
         sections.append("</div>")
     
-    # GNSS Legend
     if show_gnss_points or show_gnss_lines:
         sections.append("""
         <div class="ls">
@@ -847,7 +839,6 @@ def build_map(
             <div class="lr"><div style="width:14px;height:3px;background:#A8E6CF;"></div><span>GNSS Bowl Line</span></div>""")
         sections.append("</div>")
     
-    # Geomorphology Legend
     if show_geomorph_lines or show_geomorph_points or show_geomorph_polygons:
         sections.append("""
         <div class="ls">
@@ -931,20 +922,6 @@ def movement_trend_fig(var_gdf, nearest_pid):
     fig.tight_layout(pad=0.4)
     return fig
 
-def uncertainty_hist_fig(unc_gdf):
-    fig, ax = _dark_fig(3.6, 1.9)
-    vals = unc_gdf["error_m"].dropna()
-    ax.hist(vals, bins=20, color="#C49A6C", edgecolor="#F5F0E8", alpha=0.9)
-    ax.axvline(UNC_GREEN, color="#31A857", linestyle="--", lw=2, label=f"<{UNC_GREEN} m")
-    ax.axvline(UNC_YELLOW, color="#F7E62C", linestyle="--", lw=2, label=f"<{UNC_YELLOW} m")
-    ax.set_xlabel("Error (m)", fontsize=7)
-    ax.set_ylabel("Count", fontsize=7)
-    ax.set_title("Uncertainty Distribution", fontsize=8)
-    ax.legend(fontsize=6, labelcolor="#D8E4ED", facecolor="#0F1923", edgecolor="#1E3448")
-    ax.grid(color="#1E3448", linewidth=0.4, linestyle=":")
-    fig.tight_layout(pad=0.4)
-    return fig
-
 # ------------------------------------------------------------------------------
 # RENDER FUNCTIONS
 # ------------------------------------------------------------------------------
@@ -955,10 +932,6 @@ def render_dashboard_layout_1(map_col, right_col):
         st.session_state.map_center = MAP_CENTER
     if "map_zoom" not in st.session_state:
         st.session_state.map_zoom = MAP_ZOOM
-    if "current_map_center" not in st.session_state:
-        st.session_state.current_map_center = MAP_CENTER
-    if "current_map_zoom" not in st.session_state:
-        st.session_state.current_map_zoom = MAP_ZOOM
     if "last_checked_state" not in st.session_state:
         st.session_state.last_checked_state = {}
     
@@ -986,11 +959,8 @@ def render_dashboard_layout_1(map_col, right_col):
     
     try:
         hobo_df = load_hobo_wind_data()
-        hobo_lat, hobo_lon = utm_to_latlon(533272.70433545333799, 7262367.944419549778104)
     except Exception as e:
         hobo_df = None
-        hobo_lat = None
-        hobo_lon = None
         st.warning(f"Could not load SOS 1 WEST data: {e}")
     
     base_metadata = load_base_imagery_metadata()
@@ -1084,13 +1054,11 @@ def render_dashboard_layout_1(map_col, right_col):
             
             selected_years = list(set([date_a.year, date_b.year]))
             selected_months = list(set([date_a.strftime("%B"), date_b.strftime("%B")]))
-            wind_pct, f_wind = wind_completeness_daterange(wind_df, date_a, date_b)
+            wind_pct, f_wind = wind_completeness(wind_df, date_a=date_a, date_b=date_b)
 
         else:  # Custom preset
-            # For Custom preset, use range sliders similar to Annual/Monthly
             c1, c2 = st.columns(2)
             with c1:
-                # Year range slider
                 sorted_years = sorted(crest_gdf["year"].unique()) if not crest_gdf.empty else ALL_YEARS
                 year_range = st.select_slider(
                     "Select Year Range",
@@ -1103,22 +1071,21 @@ def render_dashboard_layout_1(map_col, right_col):
                 selected_years = sorted_years[start_year_idx:end_year_idx + 1]
             
             with c2:
-                # Month range slider
                 month_range = st.select_slider(
                     "Select Month Range",
                     options=MONTH_NAMES,
-                    value=(MONTH_NAMES[4], MONTH_NAMES[7]),  # May-August
+                    value=(MONTH_NAMES[4], MONTH_NAMES[7]),
                     key="b_custom_month_range"
                 )
                 start_idx = MONTH_NAMES.index(month_range[0])
                 end_idx = MONTH_NAMES.index(month_range[1])
                 selected_months = MONTH_NAMES[start_idx:end_idx + 1]
             
-            # No date_a/date_b for Custom - will be set from filtered data
             date_a = None
             date_b = None
             wind_pct = 0
             f_wind = pd.DataFrame()
+        
         # ── ZOOM TO FEATURE ─────────────────────────────────────────────
         st.markdown('<div class="right-panel-header">Zoom to Feature</div>', unsafe_allow_html=True)
         dune_names = st.session_state.get("dune_names", [])
@@ -1177,14 +1144,13 @@ def render_dashboard_layout_1(map_col, right_col):
                 break
         st.session_state.last_checked_state = current_state
         
-        if layer_toggled and "current_map_center" in st.session_state:
-            st.session_state.map_center = st.session_state.current_map_center
-            st.session_state.map_zoom = st.session_state.current_map_zoom
+        if layer_toggled and "map_center" in st.session_state:
+            st.session_state.map_center = st.session_state.map_center
         
         st.markdown('<div class="right-panel-header">Opacity</div>', unsafe_allow_html=True)
         opacity = st.slider("Layer opacity", 0.2, 1.0, 0.75, 0.05, label_visibility="collapsed", key="b_opacity_slider")
     
-   # ── FILTER DATA ───────────────────────────────────────────────────────────
+    # ── FILTER DATA ───────────────────────────────────────────────────────────
     if preset == "Compare":
         f_crest = crest_gdf[crest_gdf["date"].isin([date_a, date_b])].copy()
         f_playa = playa_gdf[playa_gdf["date"].isin([date_a, date_b])].copy()
@@ -1195,19 +1161,11 @@ def render_dashboard_layout_1(map_col, right_col):
         elif show_wind and wind_pct < WIND_HIDE_PCT and not f_wind.empty:
             st.warning("Wind rose hidden: data coverage below 30% for selected period.")
             
-    elif preset == "Annual" or preset == "Monthly":
-        # Annual or Monthly preset - filter data
-        m_nums = [ALL_MONTHS[m] for m in selected_months]
-        def date_filter(gdf):
-            if gdf.empty or "year" not in gdf.columns:
-                return gdf
-            return gdf[gdf["year"].isin(selected_years) & gdf["month"].isin(m_nums)].copy()
-        
-        f_crest = date_filter(crest_gdf)
-        f_playa = date_filter(playa_gdf)
+    elif preset in ["Annual", "Monthly"]:
+        f_crest = date_filter(crest_gdf, selected_years, selected_months)
+        f_playa = date_filter(playa_gdf, selected_years, selected_months)
         f_var = var_gdf.copy()
         
-        # Build combined wind rose for the entire period (for map overlay)
         wind_b64 = None
         wind_pct = 0
         date_a = None
@@ -1220,43 +1178,21 @@ def render_dashboard_layout_1(map_col, right_col):
                             (wind_df["datetime"] <= pd.Timestamp(date_b))]
             if not wind_sub.empty and wind_sub["direction"].notna().sum() >= 5:
                 wind_b64 = build_wind_rose_image(wind_sub)
-                wind_pct, _ = wind_completeness_daterange(wind_df, date_a, date_b)
+                wind_pct, _ = wind_completeness(wind_df, date_a=date_a, date_b=date_b)
             elif not wind_sub.empty:
                 st.warning("Wind rose hidden: insufficient wind data for selected period.")
         
-        # Also get wind data for individual wind roses (right column)
         wind_pct_individual, f_wind = wind_completeness(wind_df, selected_years, selected_months)
 
     else:  # Custom preset - NO wind rose
-        m_nums = [ALL_MONTHS[m] for m in selected_months]
-        def date_filter(gdf):
-            if gdf.empty or "year" not in gdf.columns:
-                return gdf
-            return gdf[gdf["year"].isin(selected_years) & gdf["month"].isin(m_nums)].copy()
-        
-        f_crest = date_filter(crest_gdf)
-        f_playa = date_filter(playa_gdf)
+        f_crest = date_filter(crest_gdf, selected_years, selected_months)
+        f_playa = date_filter(playa_gdf, selected_years, selected_months)
         f_var = var_gdf.copy()
         
-        # NO wind rose for Custom preset - keep everything None
         wind_b64 = None
         wind_pct = 0
         date_a = None
         date_b = None
-        
-        if show_wind and not f_crest.empty:
-            date_a = f_crest["date"].min()
-            date_b = f_crest["date"].max()
-            wind_sub = wind_df[(wind_df["datetime"] >= pd.Timestamp(date_a)) & 
-                               (wind_df["datetime"] <= pd.Timestamp(date_b))]
-            if not wind_sub.empty and wind_sub["direction"].notna().sum() >= 5:
-                wind_b64 = build_wind_rose_image(wind_sub)
-                wind_pct, _ = wind_completeness_daterange(wind_df, date_a, date_b)
-            elif not wind_sub.empty:
-                st.warning("Wind rose hidden: insufficient wind data for selected period.")
-        
-        # Also get wind data for individual wind roses (right column)
-        wind_pct_individual, f_wind = wind_completeness(wind_df, selected_years, selected_months)
     
     date_min = f_crest["date"].min() if not f_crest.empty and "date" in f_crest.columns else None
     date_max = f_crest["date"].max() if not f_crest.empty and "date" in f_crest.columns else None
@@ -1278,7 +1214,7 @@ def render_dashboard_layout_1(map_col, right_col):
             show_geomorph_polygons=show_geomorph_polygons,
             gnss_points_gdf=gnss_points_gdf, gnss_lines_gdf=gnss_lines_gdf,
             geomorph_data=geomorph_data,
-            hobo_df=hobo_df, hobo_lat=hobo_lat, hobo_lon=hobo_lon, show_hobo_wind=show_hobo_wind,
+            hobo_df=hobo_df, show_hobo_wind=show_hobo_wind,
             custom_center=st.session_state.map_center, custom_zoom=st.session_state.map_zoom,
         )
         
@@ -1305,11 +1241,8 @@ def render_dashboard_layout_1(map_col, right_col):
         )
         
         if map_data and "center" in map_data and "zoom" in map_data:
-            st.session_state.current_map_center = [map_data["center"]["lat"], map_data["center"]["lng"]]
-            st.session_state.current_map_zoom = map_data["zoom"]
-            if not layer_toggled:
-                st.session_state.map_center = st.session_state.current_map_center
-                st.session_state.map_zoom = st.session_state.current_map_zoom
+            st.session_state.map_center = [map_data["center"]["lat"], map_data["center"]["lng"]]
+            st.session_state.map_zoom = map_data["zoom"]
     
     # ── RIGHT COLUMN ─────────────────────────────────────────────────────────
     with right_col:
@@ -1379,7 +1312,6 @@ def render_dashboard_layout_1(map_col, right_col):
                 fig_g = build_gantt_figure(wind_df, ALL_YEARS, MONTH_NAMES)
                 st.pyplot(fig_g, use_container_width=True)
                 plt.close(fig_g)
-                # Use the appropriate wind_pct based on preset
                 display_pct = wind_pct if preset == "Compare" else (wind_pct_individual if 'wind_pct_individual' in locals() else 0)
                 if display_pct < WIND_WARN_PCT and display_pct > 0:
                     st.markdown(f'<div class="warn-box">! {display_pct*100:.0f}% coverage</div>', unsafe_allow_html=True)
