@@ -722,7 +722,7 @@ def build_map(
           <div style="display:flex;align-items:center;margin-top:2px;gap:2px;">
             <span style="font-size:7px;color:{MPL_FG};">0</span>
             <div style="flex:1;height:6px;background:linear-gradient(to right,
-              #FFFFCC,#FFEDA0,#FED976,#FEB24C,#FD8D3C,#FC4E2A,#E31A1C,#B10026);
+              #FEE5D9, #FCAE91, #FB6A4A, #DE2D26, #A50F15, #67000D);
               border-radius:2px;margin:0 2px;"></div>
             <span style="font-size:7px;color:{MPL_FG};">10+</span>
           </div>
@@ -736,7 +736,7 @@ def build_map(
         ax = WindroseAxes.from_ax(fig=fig)
         ax.bar(hobo_df["direction"], hobo_df["speed_ms"],
                normed=True, opening=0.8, edgecolor="#050505", linewidth=0.3,
-               cmap=plt.cm.YlOrBr, bins=np.arange(0, 12, 2))
+               cmap=plt.cm.Reds, bins=np.arange(0, 12, 2))
         ax.set_facecolor('none')
         ax.set_xticks([])
         ax.set_xticklabels([])
@@ -810,10 +810,10 @@ def build_map(
         <div class="lt">Crest lines &amp; Playa</div>
         {"".join(legend_items)}
         <div style="display:flex;align-items:center;gap:3px;margin:4px 0 0 0;">
-            <span style="font-size:8px;color:#440154;">{early}</span>
-            <div style="flex:1;height:6px;background:linear-gradient(to right,
-            #440154, #31688E, #35B779, #FDE725);border-radius:2px;"></div>
-            <span style="font-size:8px;color:#35B779;">{late}</span>
+            <span style="font-size:8px;color:#2171B5;">{early}</span>
+            <div style="flex:1;height:6px;background:linear-gradient(to left,
+            #08306B, #08519C, #2171B5, #4292C6, #6BAED6, #9ECAE1, #DEEBF7);border-radius:2px;"></div>
+            <span style="font-size:8px;color:#DEEBF7;">{late}</span>
         </div>
         </div>""")
 
@@ -902,10 +902,10 @@ def build_map(
         sections.append("""
         <div class="ls">
             <div class="lt">SOS 1 WEST Weather Station</div>
-            <div class="lr"><svg width="24" height="10"><circle cx="12" cy="5" r="4" fill="#8B5E3C" opacity="0.8"/></svg><span>Wind Rose (March 2026)</span></div>
+            <div class="lr"><span>Wind Rose (March 2026)</span></div>
             <div style="display:flex;align-items:center;gap:3px;margin:4px 0 0 0;">
                 <span style="font-size:7px;color:#5C3D1E;">0</span>
-                <div style="flex:1;height:5px;background:linear-gradient(to right,#FFFFCC,#FFEDA0,#FED976,#FEB24C,#FD8D3C,#FC4E2A,#E31A1C,#B10026);border-radius:2px;"></div>
+                <div style="flex:1;height:5px;background:linear-gradient(to right,#FEE5D9, #FCAE91, #FB6A4A, #DE2D26, #A50F15, #67000D);border-radius:2px;"></div>
                 <span style="font-size:7px;color:#5C3D1E;">10+</span>
             </div>
         </div>""")
@@ -1293,7 +1293,7 @@ def render_dashboard_layout_1(map_col, right_col):
                             <div style="font-size:7px;color:#050505;font-weight:600;text-align:center;font-family:sans-serif;">Wind speed (m/s)</div>
                             <div style="display:flex;align-items:center;gap:4px;padding:0 5px;">
                                 <span style="font-size:6px;">0</span>
-                                <div style="flex:1;height:5px;background:linear-gradient(to right,#FFFFCC,#FFEDA0,#FED976,#FEB24C,#FD8D3C,#FC4E2A,#E31A1C,#B10026);border-radius:2px;"></div>
+                                <div style="flex:1;height:5px;background:linear-gradient(to right,#FEE5D9, #FCAE91, #FB6A4A, #DE2D26, #A50F15, #67000D);border-radius:2px;"></div>
                                 <span style="font-size:6px;">10+</span>
                             </div>
                         """, unsafe_allow_html=True)
