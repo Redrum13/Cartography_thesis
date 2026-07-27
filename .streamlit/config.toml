@@ -4,7 +4,7 @@ backgroundColor = "#ebe8e8"
 secondaryBackgroundColor = "#D9DADB"
 textColor = "#050505"
 font = "sans-serif"
-baseFontSize = 16
+baseFontSize = 15
 
 
 [browser]
