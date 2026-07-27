@@ -1,10 +1,10 @@
 [theme]
-primaryColor = "#8B5E3C"
-backgroundColor = "#F5F0E8"
-secondaryBackgroundColor = "#EDE6D3"
-textColor = "#3B2F1E"
+primaryColor = "#0065BD"
+backgroundColor = "#ebe8e8"
+secondaryBackgroundColor = "#D9DADB"
+textColor = "#050505"
 font = "sans-serif"
-baseFontSize = 14
+baseFontSize = 16
 
 
 [browser]
