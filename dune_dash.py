@@ -810,10 +810,10 @@ def build_map(
         <div class="lt">Crest lines &amp; Playa</div>
         {"".join(legend_items)}
         <div style="display:flex;align-items:center;gap:3px;margin:4px 0 0 0;">
-            <span style="font-size:8px;color:#2171B5;">{early}</span>
+            <span style="font-size:8px;color:#6BAED6;">{early}</span>
             <div style="flex:1;height:6px;background:linear-gradient(to left,
             #08306B, #08519C, #2171B5, #4292C6, #6BAED6, #9ECAE1, #DEEBF7);border-radius:2px;"></div>
-            <span style="font-size:8px;color:#DEEBF7;">{late}</span>
+            <span style="font-size:8px;color: #08306B;">{late}</span>
         </div>
         </div>""")
 
