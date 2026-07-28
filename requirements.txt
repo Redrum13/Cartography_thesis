@@ -6,7 +6,6 @@ pandas
 numpy
 matplotlib
 shapely
+pyproj
+Pillow
 windrose
-pillow
-gspread
-google-auth
