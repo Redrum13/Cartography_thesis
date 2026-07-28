@@ -111,6 +111,12 @@ def _dark_fig(w, h):
     ax.title.set_color(MPL_ACCENT)
     return fig, ax
 
+# ---- 4. BRANDING --------------------------------------------------------------
+LOGO_HEIDELBERG = "assets/heidelberg_logo.png"   # left
+LOGO_TUM        = "assets/tum_logo.png"          # right
+PROJECT_URL     = "https://www.asg.ed.tum.de/rsa/forschung/star-dune-dynamics/"
+AUTHOR_NAME     = "Radhika"           # replace with your name
+
 # ------------------------------------------------------------------------------
 # DATA LOADING
 # ------------------------------------------------------------------------------
@@ -1272,7 +1278,7 @@ def render_dashboard_layout_1(map_col, right_col):
                 if not pairs:
                     st.caption("Not enough consecutive dates to show wind roses.")
                 else:
-                    st.markdown('<div style="font-weight:700;font-size:14px;color:#0065BD;font-family:sans-serif;margin-bottom:8px;">Wind Between Crests</div>', unsafe_allow_html=True)
+                    st.markdown('<div style="font-weight:700;font-size:14px;color:#0065BD;font-family:sans-serif;margin-bottom:8px;">Wind Conditions Across Consecutive Epochs</div>', unsafe_allow_html=True)
                     cols = st.columns(2)
                     roses_shown = 0
                     for idx, (date_a_pair, date_b_pair, label) in enumerate(pairs):
@@ -1359,9 +1365,24 @@ def render_dashboard_layout_1(map_col, right_col):
 # ------------------------------------------------------------------------------
 
 def main():
-    st.markdown('<div style="font-family:sans-serif;font-size:2rem;font-weight:bold;color:#0065BD;">Star Dune Dashboard</div>', unsafe_allow_html=True)
+    logo_l, title_col, logo_r = st.columns([1, 4, 1])
+    with logo_l:
+        if os.path.exists(LOGO_HEIDELBERG):
+            st.image(LOGO_HEIDELBERG, width=120)
+    with logo_r:
+        if os.path.exists(LOGO_TUM):
+            st.image(LOGO_TUM, width=120)
+    with title_col:
+        st.markdown('<div style="font-family:sans-serif;font-size:2rem;font-weight:bold;color:#0065BD;text-align:center;">Cartographic Dune Dynamics Visualization Dashboard</div>', unsafe_allow_html=True)
+
     map_col, right_col = st.columns([4, 1.3])
     render_dashboard_layout_1(map_col, right_col)
 
-if __name__ == "__main__":
-    main()
+    st.markdown(f"""
+    <div style="margin-top:24px;padding:12px 16px;border-top:1px solid {MPL_GRID};
+                font-size:11px;color:{MPL_FG};font-family:sans-serif;text-align:center;">
+        © 2026 {AUTHOR_NAME} — MSc Cartography Thesis, Star Dune Dynamics Project (<a href="{PROJECT_URL}" target="_blank">project page</a>)<br>
+        Contains modified Copernicus Sentinel-2 data, processed via Google Earth Engine.
+        Weather data courtesy of SASSCAL WeatherNet. GNSS field data collected as part of this project.
+    </div>
+    """, unsafe_allow_html=True)
