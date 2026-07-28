@@ -788,7 +788,7 @@ def build_map(
         legend_items.append(f"""
             <div class="lr">
                 <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4"
-                    stroke="{MPL_ACCENT2}" stroke-width="1.5" stroke-dasharray="5,3"/></svg>
+                    stroke="#C49A6C" stroke-width="1.5" stroke-dasharray="5,3"/></svg>
                 <span>Gap fill</span>
             </div>
         """)
@@ -833,7 +833,7 @@ def build_map(
         error_items = []
         if show_uncertainty:
             error_items.append("""
-            <div class="lr" style="margin-top:3px;"><span style="font-size:8px;font-weight:600;color:#5C3D1E;">Measured DISPLACEMENT ERROR</span></div>
+            <div class="lr" style="margin-top:3px;"><span>MEASURED DISPLACEMENT ERROR</span></div>
             <div class="lr"><div style="width:14px;height:3px;background:#31A857;"></div><span>&lt; 2 m</span></div>
             <div class="lr"><div style="width:14px;height:3px;background:#F7E62C;"></div><span>2-6 m</span></div>
             <div class="lr"><div style="width:14px;height:3px;background:#C7400F;"></div><span>&gt; 6 m</span></div>""")
@@ -841,7 +841,7 @@ def build_map(
             if show_uncertainty:
                 error_items.append('<div style="border-top:1px dashed #D9DADB;margin:4px 0;"></div>')
             error_items.append(f"""
-            <div class="lr"><span style="font-size:8px;font-weight:600;color:#5C3D1E;">MARGIN OF ERROR (95% CI)</span></div>
+            <div class="lr"><span>MARGIN OF ERROR (95% CI)</span></div>
             <div class="lr">
                 <svg width="16" height="10"><rect x="0" y="0" width="16" height="10"
                     fill="#6C5151" opacity="0.3" stroke="#6C5151" stroke-width="1"/></svg>
@@ -895,7 +895,7 @@ def build_map(
         sections.append(f"""
         <div class="ls">
             <div class="lt">Base Imagery</div>
-            <div class="lr"><span style="font-size:9px;color:#5C3D1E;font-weight:600;">{base_img_date}</span></div>
+            <div class="lr"><span>{base_img_date}</span></div>
         </div>""")
 
     if show_hobo_wind and hobo_df is not None:
