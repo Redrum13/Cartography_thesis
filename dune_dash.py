@@ -28,7 +28,7 @@ from PIL import Image
 # PAGE CONFIG
 # ------------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Star Dune Dynamics Dashboard",
+    page_title="Cartographic Dashboard for Star Dune Dynamics Visualization",
     page_icon=None,
     layout="wide",
     initial_sidebar_state="expanded",
@@ -112,8 +112,8 @@ def _dark_fig(w, h):
     return fig, ax
 
 # ---- 4. BRANDING --------------------------------------------------------------
-LOGO_HEIDELBERG = "assets/heidelberg_logo-01.png"   # left
-LOGO_TUM        = "assets/tum_logo-01.png"          # right
+LOGO_HEIDELBERG = "assets/heidelberg_logo.svg"   # left
+LOGO_TUM        = "assets/tum_logo.svg"          # right
 PROJECT_URL     = "https://www.asg.ed.tum.de/rsa/forschung/star-dune-dynamics/"
 AUTHOR_NAME     = "Radhika"           # replace with your name
 
@@ -499,7 +499,7 @@ def build_map(
             folium.raster_layers.ImageOverlay(
                 image=img_array,
                 bounds=[[bounds["bottom"], bounds["left"]], [bounds["top"], bounds["right"]]],
-                opacity=0.9, name="Base Imagery", overlay=True, control=True
+                opacity=1.0, name="Base Imagery", overlay=True, control=True
             ).add_to(m)
 
     # 1. UNCERTAINTY LINES
@@ -524,8 +524,8 @@ def build_map(
             dissolved = buffered.dissolve().to_crs("EPSG:4326")
             folium.GeoJson(
                 dissolved.geometry.iloc[0].__geo_interface__,
-                style_function=lambda f: {"fillColor": "#C61826", "color": "#C61826", "weight": 0, "fillOpacity": opacity * 0.3},
-                tooltip=folium.Tooltip(f"<b>Margin of Error (95% CI)</b><br>±{REPRESENTATIVE_MARGIN_OF_ERROR_M:.2f} m")
+                style_function=lambda f: {"fillColor": "#C61826", "color": "#C61826", "weight": 0, "fillOpacity": opacity * 0.5},
+                tooltip=folium.Tooltip(f"<b>Margin of Error (95% CI)</b><br>±{REPRESENTATIVE_MARGIN_OF_ERROR_M:.2f} m <p> Based on March 2026 Epoch only</p>")
             ).add_to(m)
         except Exception:
             pass
@@ -850,8 +850,8 @@ def build_map(
             <div class="lr"><span>MARGIN OF ERROR (95% CI)</span></div>
             <div class="lr">
                 <svg width="16" height="10"><rect x="0" y="0" width="16" height="10"
-                    fill="#6C5151" opacity="0.3" stroke="#6C5151" stroke-width="1"/></svg>
-                <span>±{REPRESENTATIVE_MARGIN_OF_ERROR_M:.1f} m buffer</span>
+                    fill="#C61826" opacity="0.5" stroke="#C61826" stroke-width="1"/></svg>
+                <span>±{REPRESENTATIVE_MARGIN_OF_ERROR_M:.1f} m buffer based on March 2026 Epoch</span>
             </div>""")
         sections.append(f"""
         <div class="ls">
@@ -1152,19 +1152,21 @@ def render_dashboard_layout_1(map_col, right_col):
             show_gap_fills = st.checkbox("Gap fills", value=True, disabled=not show_crests, key="b_show_gap_fills")
             show_movement = st.checkbox("Crest Movement (arrows)", value=True, key="b_show_movement") if preset == "Compare" else False
             show_playa = st.checkbox("Playa (97th Percentile SI)", value=False, key="b_show_playa")
-            show_wind = st.checkbox("Wind rose overlay", value=True, key="b_show_wind")
             show_uncertainty = st.checkbox("Displacement Error Lines (Only March 2026)", value=False, key="b_show_uncertainty")
             show_margin_buffer = st.checkbox("Margin of Error Buffer (95% CI)", value=True, key="b_show_margin_buffer")
             show_base_imagery = st.checkbox("Base Imagery (Sentinel-2)", value=True, key="b_show_base_imagery")
 
+        with st.expander("Wind Data Layers", expanded=False):
+            show_wind = st.checkbox("Wind rose overlay (Dieprivier Station ~ 95 km away)", value=True, key="b_show_wind")
+            show_hobo_wind = st.checkbox("SOS 1 WEST Weather Station Wind Rose (16 - 20 March 2026)", value=False, key="b_show_hobo_wind")
+
         with st.expander("In-situ Layers", expanded=False):
-            st.markdown('<div style="font-weight:600;font-size:12px;color:#C61826;font-family:sans-serif;margin:4px 0 8px 0;">From MARCH 2026</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-weight:600;font-size:12px;color:#C61826;font-family:sans-serif;margin:4px 0 8px 0;">MARCH 2026</div>', unsafe_allow_html=True)
             show_gnss_points = st.checkbox("GNSS Survey Points", value=False, key="b_show_gnss_points")
             show_gnss_lines = st.checkbox("GNSS Crest/Edge/Bowl Lines", value=False, key="b_show_gnss_lines")
             show_geomorph_lines = st.checkbox("Erosion fossil dune / vlei deposits", value=False, key="b_show_geomorph_lines")
             show_geomorph_points = st.checkbox("Sediment Sample Points", value=False, key="b_show_geomorph_points")
             show_geomorph_polygons = st.checkbox("Recent Vlei / Fossil Dunes", value=False, key="b_show_geomorph_polygons")
-            show_hobo_wind = st.checkbox("SOS 1 WEST Weather Station Wind Rose", value=False, key="b_show_hobo_wind")
 
         current_state = {
             "show_crests": show_crests, "show_gap_fills": show_gap_fills,
@@ -1365,24 +1367,34 @@ def render_dashboard_layout_1(map_col, right_col):
 # ------------------------------------------------------------------------------
 
 def main():
-    logo_l, title_col, logo_r = st.columns([1, 4, 1])
+    logo_l, title_col, logo_r = st.columns([1, 7, 1], vertical_alignment="center")
     with logo_l:
-        if os.path.exists(LOGO_HEIDELBERG):
-            st.image(LOGO_HEIDELBERG, width=120)
+        st.image(LOGO_HEIDELBERG, width=100)
     with logo_r:
-        if os.path.exists(LOGO_TUM):
-            st.image(LOGO_TUM, width=120)
+        st.image(LOGO_TUM, width=90)
     with title_col:
-        st.markdown('<div style="font-family:sans-serif;font-size:2rem;font-weight:bold;color:#0065BD;text-align:center;">Cartographic Dune Dynamics Visualization Dashboard</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:2rem;color:#0065BD; text-align:center; font-weight:bold">Cartographic Dashboard for Star Dune Dynamics Visualization</div>', unsafe_allow_html=True)
+
+    st.divider()
 
     map_col, right_col = st.columns([4, 1.3])
     render_dashboard_layout_1(map_col, right_col)
 
+    st.divider()
+
     st.markdown(f"""
-    <div style="margin-top:24px;padding:12px 16px;border-top:1px solid {MPL_GRID};
-                font-size:11px;color:{MPL_FG};font-family:sans-serif;text-align:center;">
-        © 2026 {AUTHOR_NAME} — MSc Cartography Thesis, Star Dune Dynamics Project (<a href="{PROJECT_URL}" target="_blank">project page</a>)<br>
-        Contains modified Copernicus Sentinel-2 data, processed via Google Earth Engine.
-        Weather data courtesy of SASSCAL WeatherNet. GNSS field data collected as part of this project.
-    </div>
-    """, unsafe_allow_html=True)
+            <div style="background-color:#FFFFFF;
+                        font-size:11px;
+                        color:{MPL_FG};
+                        font-family:sans-serif;
+                        text-align:center;">
+                © 2026 {AUTHOR_NAME} — MSc Cartography Thesis, Star Dune Dynamics Project 
+                (<a href="{PROJECT_URL}" target="_blank" style="color:#0065BD;">project page</a>)<br>
+                <span style="font-size:10px; color:#6C757D;">
+                Sources: Copernicus Sentinel-2 · SASSCAL WeatherNet · GNSS Field Data
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+
+if __name__ == "__main__":
+    main()
