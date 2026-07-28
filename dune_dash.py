@@ -112,8 +112,8 @@ def _dark_fig(w, h):
     return fig, ax
 
 # ---- 4. BRANDING --------------------------------------------------------------
-LOGO_HEIDELBERG = "assets/heidelberg_logo.png"   # left
-LOGO_TUM        = "assets/tum_logo.png"          # right
+LOGO_HEIDELBERG = "assets/heidelberg_logo-01.png"   # left
+LOGO_TUM        = "assets/tum_logo-01.png"          # right
 PROJECT_URL     = "https://www.asg.ed.tum.de/rsa/forschung/star-dune-dynamics/"
 AUTHOR_NAME     = "Radhika"           # replace with your name
 
