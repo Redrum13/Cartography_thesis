@@ -313,7 +313,7 @@ def date_colormap(dates):
 
 def diverging_color(value, vmin=-10, vmax=10):
     norm = plt.Normalize(vmin, vmax)
-    r, g, b, _ = plt.cm.PRGn(norm(value))
+    r, g, b, _ = plt.cm.berlin(norm(value))
     return mcolors.to_hex((r, g, b))
 
 def unc_color(error_m):
