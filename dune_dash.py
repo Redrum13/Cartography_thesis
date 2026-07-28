@@ -1367,13 +1367,13 @@ def render_dashboard_layout_1(map_col, right_col):
 # ------------------------------------------------------------------------------
 
 def main():
-    logo_l, title_col, logo_r = st.columns([1, 7, 1], vertical_alignment="center")
+    logo_l, logo_r, title_col = st.columns([1, 1, 7], vertical_alignment="center")
     with logo_l:
         st.image(LOGO_HEIDELBERG, width=100)
     with logo_r:
         st.image(LOGO_TUM, width=90)
     with title_col:
-        st.markdown('<div style="font-size:2rem;color:#0065BD; text-align:center; font-weight:bold">Cartographic Dashboard for Star Dune Dynamics Visualization</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:2rem;color:#0065BD; font-weight:bold">Cartographic Dashboard for Star Dune Dynamics Visualization</div>', unsafe_allow_html=True)
 
     st.divider()
 
