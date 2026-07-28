@@ -822,10 +822,10 @@ def build_map(
         <div class="ls">
         <div class="lt">Crest Movement (arrows)</div>
             <div style="display:flex;align-items:center;gap:3px;margin:3px 0;width:100%;">
-                <span style="font-size:8px;color:#7B3294;">left</span>
+                <span style="font-size:8px;color: #99BAFF;">left</span>
                 <div style="flex:1;height:6px;background:linear-gradient(to right,
-                #0044CC,#222222,#000000,#331100,#AA3300);border-radius:2px;"></div>
-                <span style="font-size:8px;color:#008F48;">right</span>
+                #99BAFF,#1A2F6B,#191919,#5C2016,#FFB1A6);border-radius:2px;"></div>
+                <span style="font-size:8px;color:#FFB1A6;">right</span>
             </div>
         </div>""")
 
