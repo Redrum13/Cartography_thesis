@@ -518,7 +518,7 @@ def build_map(
             dissolved = buffered.dissolve().to_crs("EPSG:4326")
             folium.GeoJson(
                 dissolved.geometry.iloc[0].__geo_interface__,
-                style_function=lambda f: {"fillColor": "#6C5151", "color": "#6C5151", "weight": 0, "fillOpacity": opacity * 0.5},
+                style_function=lambda f: {"fillColor": "#C61826", "color": "#C61826", "weight": 0, "fillOpacity": opacity * 0.3},
                 tooltip=folium.Tooltip(f"<b>Margin of Error (95% CI)</b><br>±{REPRESENTATIVE_MARGIN_OF_ERROR_M:.2f} m")
             ).add_to(m)
         except Exception:
