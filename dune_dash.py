@@ -93,7 +93,7 @@ MAP_ZOOM = 14
 # ---- 3. STYLE ----------------------------------------------------------------
 MPL_BG = "#ffffff"
 MPL_FG = "#050505"
-MPL_GRID = "#eeeeee"
+MPL_GRID = "#bebebe"
 MPL_ACCENT = "#0065BD"
 MPL_ACCENT2 = "#C61826"
 
