@@ -721,7 +721,7 @@ def build_map(
         html = f"""
         <div style="position:fixed;top:10px;right:10px;z-index:9999;
                     background:rgba(235,232,232,0.92);border:1px solid {MPL_GRID};
-                    border-radius:8px;padding:7px 8px;text-align:center;opacity:{opacity};font-family:sans-serif;">
+                    border-radius:8px;padding:7px 8px;text-align:center;opacity:1.0;font-family:sans-serif;">
           <div style="font-size:8px;color:{MPL_FG};font-weight:600;margin-bottom:3px;">{date_label}</div>
           <img src="data:image/png;base64,{wind_b64}" width="150"/>
           <div style="margin-top:4px;font-size:8px;color:{MPL_FG};font-weight:600;">Wind speed (m/s)</div>
