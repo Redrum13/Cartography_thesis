@@ -348,16 +348,16 @@ def wind_completeness(wind_df, years=None, months=None, date_a=None, date_b=None
         return frac, sub
 
 def build_wind_rose_image(wind_df):
-    fig = plt.figure(figsize=(2.8, 2.8), facecolor=MPL_BG)
+    fig = plt.figure(figsize=(2.8, 2.8), facecolor=MPL_GRID)
     ax = WindroseAxes.from_ax(fig=fig)
     ax.bar(wind_df["direction"], wind_df["speed_ms"],
            normed=True, opening=0.8, edgecolor=MPL_GRID,
            cmap=plt.cm.Reds, bins=np.arange(0, 12, 2))
-    ax.set_facecolor(MPL_BG)
+    ax.set_facecolor(MPL_GRID)
     ax.tick_params(colors=MPL_FG, labelsize=8)
     fig.patch.set_alpha(1)
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=110, bbox_inches="tight", facecolor=MPL_BG)
+    fig.savefig(buf, format="png", dpi=110, bbox_inches="tight", facecolor=MPL_GRID)
     plt.close(fig)
     return base64.b64encode(buf.getvalue()).decode()
 
@@ -367,18 +367,18 @@ def build_simple_wind_rose(wind_df, date_start, date_end):
     if sub.empty or sub["direction"].notna().sum() < 5:
         return None, False
 
-    fig = plt.figure(figsize=(2.2, 2.2), facecolor=MPL_BG)
+    fig = plt.figure(figsize=(2.2, 2.2), facecolor=MPL_GRID)
     ax = WindroseAxes.from_ax(fig=fig)
     ax.bar(sub["direction"], sub["speed_ms"],
            normed=True, opening=0.8, edgecolor=MPL_GRID,
            cmap=plt.cm.Reds, bins=np.arange(0, 12, 2))
-    ax.set_facecolor(MPL_BG)
+    ax.set_facecolor(MPL_GRID)
     ax.tick_params(colors=MPL_FG, labelsize=6)
     ax.set_title('')
     ax.legend().set_visible(False)
     fig.patch.set_alpha(1)
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=90, bbox_inches="tight", facecolor=MPL_BG)
+    fig.savefig(buf, format="png", dpi=90, bbox_inches="tight", facecolor=MPL_GRID)
     plt.close(fig)
     return base64.b64encode(buf.getvalue()).decode(), True
 
@@ -437,7 +437,7 @@ def build_gantt_figure(wind_df, years, months):
     ax.set_xticks(xticks)
     ax.set_xticklabels(xlabels, fontsize=7, color=MPL_FG)
     ax.set_title("Wind Coverage", fontsize=12, color=MPL_ACCENT, pad=4)
-    ax.grid(axis="x", color=MPL_GRID, linewidth=0.4, linestyle=":")
+    ax.grid(axis="x", color=MPL_BG, linewidth=0.4, linestyle=":")
     fig.tight_layout(pad=0.4)
     return fig
 
@@ -953,12 +953,12 @@ def movement_trend_fig(var_gdf, nearest_pid):
                color="#0065BD", s=5, marker='d', zorder=5, label="Winter (Apr-Sep)")
     ax.scatter(trend.loc[mask_summer, "date"], trend.loc[mask_summer, "distance_m"],
                color="#C61826", s=5, marker='o', zorder=5, label="Summer (Oct-Mar)")
-    ax.plot(trend["date"], trend["distance_m"], marker="", color=MPL_GRID, linewidth=1, alpha=0.5)
+    ax.plot(trend["date"], trend["distance_m"], marker="", color=MPL_BG, linewidth=1, alpha=0.5)
     ax.axhline(0, color=MPL_GRID, linestyle="--", linewidth=0.8)
     ax.set_xlabel("Date", fontsize=7, color=MPL_FG)
     ax.set_ylabel("Distance (m)", fontsize=7, color=MPL_FG)
     ax.set_title(f"Point {nearest_pid}", fontsize=8, color=MPL_ACCENT)
-    ax.grid(color=MPL_GRID, linewidth=0.4, linestyle=":")
+    ax.grid(color=MPL_BG, linewidth=0.4, linestyle=":")
     ax.legend(fontsize=6, loc="best")
     fig.autofmt_xdate(rotation=30, ha="right")
     fig.tight_layout(pad=0.4)
