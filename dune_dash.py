@@ -115,7 +115,7 @@ def _dark_fig(w, h):
 LOGO_HEIDELBERG = "assets/heidelberg_logo.svg"   # left
 LOGO_TUM        = "assets/tum_logo.svg"          # right
 PROJECT_URL     = "https://www.asg.ed.tum.de/rsa/forschung/star-dune-dynamics/"
-AUTHOR_NAME     = "Radhika"           # replace with your name
+AUTHOR_NAME     = "Radhika Dhuri"          
 
 # ------------------------------------------------------------------------------
 # DATA LOADING
@@ -1367,7 +1367,7 @@ def render_dashboard_layout_1(map_col, right_col):
 # ------------------------------------------------------------------------------
 
 def main():
-    logo_l, logo_r, title_col = st.columns([1, 1, 7], vertical_alignment="center")
+    title_col, logo_l, logo_r  = st.columns([7, 1, 1], vertical_alignment="center")
     with logo_l:
         st.image(LOGO_HEIDELBERG, width=100)
     with logo_r:
@@ -1388,7 +1388,9 @@ def main():
                         color:{MPL_FG};
                         font-family:sans-serif;
                         text-align:center;">
-                © 2026 {AUTHOR_NAME} — MSc Cartography Thesis, Star Dune Dynamics Project 
+                © 2026 {AUTHOR_NAME} — MSc Cartography Thesis Project. This work is part of the Star
+                  Dune Dynamics Project funded by the German Research Foundation (DFG, project number 551866032). 
+                  Find more info on the project website:
                 (<a href="{PROJECT_URL}" target="_blank" style="color:#0065BD;">project page</a>)<br>
                 <span style="font-size:10px; color:#6C757D;">
                 Sources: Copernicus Sentinel-2 · SASSCAL WeatherNet · GNSS Field Data
