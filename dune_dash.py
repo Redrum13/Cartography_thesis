@@ -351,7 +351,7 @@ def build_wind_rose_image(wind_df):
     fig = plt.figure(figsize=(2.8, 2.8), facecolor=MPL_GRID)
     ax = WindroseAxes.from_ax(fig=fig)
     ax.bar(wind_df["direction"], wind_df["speed_ms"],
-           normed=True, opening=0.8, edgecolor=MPL_BG,
+           normed=True, opening=0.8, edgecolor=MPL_FG,
            cmap=plt.cm.Reds, bins=np.arange(0, 12, 2))
     ax.set_facecolor(MPL_GRID)
     ax.tick_params(colors=MPL_FG, labelsize=8)
@@ -370,7 +370,7 @@ def build_simple_wind_rose(wind_df, date_start, date_end):
     fig = plt.figure(figsize=(2.2, 2.2), facecolor=MPL_GRID)
     ax = WindroseAxes.from_ax(fig=fig)
     ax.bar(sub["direction"], sub["speed_ms"],
-           normed=True, opening=0.8, edgecolor=MPL_BG,
+           normed=True, opening=0.8, edgecolor=MPL_FG,
            cmap=plt.cm.Reds, bins=np.arange(0, 12, 2))
     ax.set_facecolor(MPL_GRID)
     ax.tick_params(colors=MPL_FG, labelsize=6)
