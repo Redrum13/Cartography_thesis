@@ -1085,17 +1085,6 @@ def render_dashboard_layout_1(map_col, right_col):
             date_a = pd.to_datetime(date_range[0])
             date_b = pd.to_datetime(date_range[1])
 
-            st.markdown(
-                f"""
-                <div style="display:flex;justify-content:space-between;background:#D9DADB;padding:8px 12px;border-radius:4px;border:1px solid #D9DADB;margin-top:4px;font-family:sans-serif;">
-                    <span style="font-size:0.9rem;color:#0065BD;font-weight:600;">{date_a.strftime("%b %Y")}</span>
-                    <span style="color:#050505;">→</span>
-                    <span style="font-size:0.9rem;color:#0065BD;font-weight:600;">{date_b.strftime("%b %Y")}</span>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
             if date_a == date_b:
                 st.info("Select two different dates for comparison.")
 
