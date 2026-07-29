@@ -93,7 +93,7 @@ MAP_ZOOM = 14
 # ---- 3. STYLE ----------------------------------------------------------------
 MPL_BG = "#ffffff"
 MPL_FG = "#050505"
-MPL_GRID = "#D9DADB"
+MPL_GRID = "#eeeeee"
 MPL_ACCENT = "#0065BD"
 MPL_ACCENT2 = "#C61826"
 
@@ -1388,12 +1388,12 @@ def main():
                         color:{MPL_FG};
                         font-family:sans-serif;
                         text-align:center;">
-                © 2026 {AUTHOR_NAME} — MSc Cartography Thesis Project. This work is part of the Star
+                © 2026 {AUTHOR_NAME} — MSc Cartography Thesis Project.<br>This work is part of the Star
                   Dune Dynamics Project funded by the German Research Foundation (DFG, project number 551866032). 
                   Find more info on the project website:
-                (<a href="{PROJECT_URL}" target="_blank" style="color:#0065BD;">project page</a>)<br>
+                <a href="{PROJECT_URL}" target="_blank" style="color:#0065BD;">Star Dune Dynamics</a><br>
                 <span style="font-size:10px; color:#6C757D;">
-                Sources: Copernicus Sentinel-2 · SASSCAL WeatherNet · GNSS Field Data
+                Sources — Copernicus Sentinel-2 · SASSCAL WeatherNet · GNSS Field Data
                 </span>
             </div>
             """, unsafe_allow_html=True)
