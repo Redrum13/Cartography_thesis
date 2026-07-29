@@ -1388,7 +1388,7 @@ def main():
                         color:{MPL_FG};
                         font-family:sans-serif;
                         text-align:center;">
-                © 2026 {AUTHOR_NAME}: MSc Cartography Thesis Project.<br>This work is part of the Star
+                © 2026 {AUTHOR_NAME} · MSc Cartography Thesis Project.<br>This work is part of the Star
                   Dune Dynamics Project funded by the German Research Foundation (DFG, project number 551866032).<br> 
                   Find more info on the project website:
                 <a href="{PROJECT_URL}" target="_blank" style="color:#0065BD;">Star Dune Dynamics</a><br>
