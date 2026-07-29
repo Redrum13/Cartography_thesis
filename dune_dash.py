@@ -91,9 +91,9 @@ MAP_CENTER = [-24.76, 15.31]
 MAP_ZOOM = 14
 
 # ---- 3. STYLE ----------------------------------------------------------------
-MPL_BG = "#ffffff"
+MPL_BG = "#eeeeee"
 MPL_FG = "#050505"
-MPL_GRID = "#bebebe"
+MPL_GRID = "#ffffff"
 MPL_ACCENT = "#0065BD"
 MPL_ACCENT2 = "#C61826"
 
@@ -1087,7 +1087,7 @@ def render_dashboard_layout_1(map_col, right_col):
 
             st.markdown(
                 f"""
-                <div style="display:flex;justify-content:space-between;background:{MPL_GRID};padding:8px 12px;border-radius:4px;border:1px solid #D9DADB;margin-top:4px;font-family:sans-serif;">
+                <div style="display:flex;justify-content:space-between;background:{MPL_BG};padding:8px 12px;border-radius:4px;border:1px solid #D9DADB;margin-top:4px;font-family:sans-serif;">
                     <span style="font-size:0.9rem;color:#0065BD;font-weight:600;">{date_a.strftime("%b %Y")}</span>
                     <span style="color:#050505;">→</span>
                     <span style="font-size:0.9rem;color:#0065BD;font-weight:600;">{date_b.strftime("%b %Y")}</span>
