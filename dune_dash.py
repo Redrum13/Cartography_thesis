@@ -1401,7 +1401,7 @@ def main():
             style="color:#0065BD;">Copernicus Sentinel-2</a> · 
             <a href="https://www.sasscalweathernet.com/" 
             target="_blank" 
-            style="color:#0065BD;">SASSCAL WeatherNet</a> · 
+            style="color:#0065BD;">SASSCAL WeatherNet (2020)</a> · 
             <a href="{PROJECT_URL}" 
             target="_blank" 
             style="color:#0065BD;">GNSS Field Data</a>
