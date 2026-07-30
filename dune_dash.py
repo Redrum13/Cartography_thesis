@@ -1384,20 +1384,36 @@ def main():
     st.divider()
 
     st.markdown(f"""
-            <div style="
-                        font-size:11px;
-                        color:{MPL_FG};
-                        font-family:sans-serif;
-                        text-align:center;">
-                © 2026 {AUTHOR_NAME} · MSc Cartography Thesis Project.<br>This work is part of the Star
-                  Dune Dynamics Project funded by the German Research Foundation (DFG, project number 551866032).<br> 
-                  Find more info on the project website:
-                <a href="{PROJECT_URL}" target="_blank" style="color:#0065BD;">Star Dune Dynamics</a><br>
-                <span style="font-size:10px; color:#6C757D;">
-                Sources: Copernicus Sentinel-2 · SASSCAL WeatherNet · GNSS Field Data
-                </span>
-            </div>
-            """, unsafe_allow_html=True)
+        <div style="
+                    font-size:11px;
+                    color:{MPL_FG};
+                    font-family:sans-serif;
+                    text-align:center;">
+            © 2026 {AUTHOR_NAME} · MSc Cartography Thesis Project.<br>
+            This work is part of the Star Dune Dynamics Project funded by the 
+            German Research Foundation (DFG, project number 551866032).<br> 
+            Find more info on the project website:
+            <a href="{PROJECT_URL}" target="_blank" style="color:#0065BD;">Star Dune Dynamics</a><br>
+            <span style="font-size:10px; color:#6C757D;">
+            Data sources: 
+            <a href="https://sentinels.copernicus.eu/web/sentinel/missions/sentinel-2" 
+            target="_blank" 
+            style="color:#0065BD;">Copernicus Sentinel-2</a> · 
+            <a href="https://www.sasscalweathernet.com/" 
+            target="_blank" 
+            style="color:#0065BD;">SASSCAL WeatherNet</a> · 
+            <a href="{PROJECT_URL}" 
+            target="_blank" 
+            style="color:#0065BD;">GNSS Field Data</a>
+            </span>
+            <br>
+            <span style="font-size:9px; color:#6C757D;">
+            Contains modified Copernicus Sentinel data 2026 · 
+            SASSCAL WeatherNet data used under license · 
+            GNSS data collected under DFG project 551866032
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
