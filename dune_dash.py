@@ -653,8 +653,16 @@ def build_map(
         type_colors = {'crest': '#FFD93D', 'CREST': '#FFD93D', 'edge': '#6C5CE7', 'bowl': '#A8E6CF'}
         default_color = '#95A5A6'
         for _, row in gnss_lines_gdf.iterrows():
-            coords = list(row.geometry.coords)
-            locations = [[coord[1], coord[0]] for coord in coords]
+            geometry = row.geometry
+            locations = []
+            
+            if geometry.geom_type == 'LineString':
+                coords = list(geometry.coords)
+                locations = [[coord[1], coord[0]] for coord in coords]
+            elif geometry.geom_type == 'MultiLineString':
+                for line in geometry.geoms:
+                    coords = list(line.coords)
+                    locations.extend([[coord[1], coord[0]] for coord in coords])
             if len(locations) >= 2:
                 folium.PolyLine(
                     locations=locations,
