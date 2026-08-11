@@ -538,9 +538,14 @@ def build_map(
         date_color_map = dict(zip([str(d) for d in dates_sorted], date_colormap(dates_sorted)))
         for _, row in playa_gdf.iterrows():
             c = date_color_map.get(str(row["date"]), MPL_GRID)
-            folium.GeoJson(
-                row["geometry"].__geo_interface__,
-                style_function=lambda f, col=c: {"fillColor": col, "color": col, "weight": 1, "fillOpacity": opacity * 0.5},
+            coords = list(row.geometry.exterior.coords)
+            locations = [[coord[1], coord[0]] for coord in coords]
+            folium.Polygon(
+                locations=locations,
+                fill_color=c,
+                color=c,
+                weight=1,
+                fill_opacity=opacity * 0.5,
                 tooltip=folium.Tooltip(f"<b>Playa</b><br>{row['date'].date()}")
             ).add_to(m)
 
@@ -1270,7 +1275,7 @@ def render_dashboard_layout_1(map_col, right_col):
                 folium_map.fit_bounds([[b[1], b[0]], [b[3], b[2]]])
 
         map_data = st_folium(
-            folium_map, width=1000, height=600,
+            folium_map, width="100%", height=600,
             returned_objects=["last_object_clicked"], key=f"b_folium_map_{show_wind}"
         )
 
