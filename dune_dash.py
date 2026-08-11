@@ -514,7 +514,7 @@ def build_map(
             coords = list(row.geometry.coords)
             folium.PolyLine(
                 locations=[[lat, lon] for lon, lat in coords],
-                color=c, weight=5, opacity=opacity,
+                color=c, weight=3, opacity=opacity,
                 tooltip=folium.Tooltip(f"<b>GNSS Displacement</b><br>Error: {err:.2f} m")
             ).add_to(m)
 
@@ -880,7 +880,7 @@ def build_map(
         if show_gnss_lines:
             gnss_items.append("""
             <div class="lr"><div style="width:14px;height:3px;background:#C61826;"></div><span> Reference Line</span></div>
-            <div class="lr"><div style="width:14px;height:3px;background:#FFD93D;"></div><span>GNSS Crest Line</span></div>
+            <div class="lr"><div style="width:14px;height:3px;background:#6C5CE7;"></div><span>GNSS Crest Line</span></div>
             <div class="lr"><div style="width:14px;height:3px;background:#A8E6CF;"></div><span>GNSS Bowl Line</span></div>""")
         sections.append(f"""
         <div class="ls">
