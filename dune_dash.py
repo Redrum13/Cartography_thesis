@@ -1270,7 +1270,7 @@ def render_dashboard_layout_1(map_col, right_col):
                 folium_map.fit_bounds([[b[1], b[0]], [b[3], b[2]]])
 
         map_data = st_folium(
-            folium_map, width=800, height=600,
+            folium_map, width=1000, height=600,
             returned_objects=["last_object_clicked"], key=f"b_folium_map_{show_wind}"
         )
 
