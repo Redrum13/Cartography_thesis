@@ -514,7 +514,7 @@ def build_map(
             coords = list(row.geometry.coords)
             folium.PolyLine(
                 locations=[[lat, lon] for lon, lat in coords],
-                color=c, weight=3, opacity=opacity,
+                color=c, weight=5, opacity=opacity,
                 tooltip=folium.Tooltip(f"<b>GNSS Displacement</b><br>Error: {err:.2f} m")
             ).add_to(m)
 
