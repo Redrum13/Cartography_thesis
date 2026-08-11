@@ -667,7 +667,7 @@ def build_map(
                 folium.PolyLine(
                     locations=locations,
                     color=type_colors.get(row.get('type'), default_color),
-                    weight=3, opacity=opacity,
+                    weight=1, opacity=opacity,
                     tooltip=folium.Tooltip(f"<b>GNSS Line</b><br>Name: {row.get('name', 'Unknown')}")
                 ).add_to(m)
 
