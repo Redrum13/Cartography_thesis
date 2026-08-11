@@ -651,7 +651,7 @@ def build_map(
 
     if show_gnss_lines and gnss_lines_gdf is not None and not gnss_lines_gdf.empty:
         type_colors = {'crest': '#FFD93D', 'CREST': '#FFD93D', 'edge': '#6C5CE7', 'bowl': '#A8E6CF'}
-        default_color = "#26365C"
+        default_color = "#C61826"
         for _, row in gnss_lines_gdf.iterrows():
             geometry = row.geometry
             locations = []
@@ -876,12 +876,11 @@ def build_map(
             <div class="lr"><div style="width:14px;height:14px;border-radius:50%;background:#FF6B6B;"></div><span>GNSS Points (P3, P4)</span></div>
             <div class="lr"><div style="width:14px;height:14px;border-radius:50%;background:#4ECDC4;"></div><span>GNSS Points (CCP)</span></div>
             <div class="lr"><div style="width:14px;height:14px;border-radius:50%;background:#FFD93D;"></div><span>GNSS Points (Crest)</span></div>
-            <div class="lr"><div style="width:14px;height:14px;border-radius:50%;background:#6C5CE7;"></div><span>GNSS Points (Edge)</span></div>
             <div class="lr"><div style="width:14px;height:14px;border-radius:50%;background:#A8E6CF;"></div><span>GNSS Points (Bowl)</span></div>""")
         if show_gnss_lines:
             gnss_items.append("""
+            <div class="lr"><div style="width:14px;height:3px;background:#C61826;"></div><span> Reference Line</span></div>
             <div class="lr"><div style="width:14px;height:3px;background:#FFD93D;"></div><span>GNSS Crest Line</span></div>
-            <div class="lr"><div style="width:14px;height:3px;background:#6C5CE7;"></div><span>GNSS Edge Line</span></div>
             <div class="lr"><div style="width:14px;height:3px;background:#A8E6CF;"></div><span>GNSS Bowl Line</span></div>""")
         sections.append(f"""
         <div class="ls">
