@@ -644,8 +644,8 @@ def build_map(
             name = row.get('full_name', row.get('Name', 'Unknown'))
             folium.CircleMarker(
                 location=[row.geometry.y, row.geometry.x],
-                radius=4, color=color, fill=True, stroke=False,
-                fill_color=color, fill_opacity=1, weight=5,
+                radius=4, color=color, fill=True, stroke=True,
+                fill_color=color, fill_opacity=0.7, weight=5,
                 tooltip=folium.Tooltip(f"<b>GNSS Point</b><br>Name: {name}<br>Type: {point_type}")
             ).add_to(m)
 
