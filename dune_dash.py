@@ -650,7 +650,7 @@ def build_map(
             ).add_to(m)
 
     if show_gnss_lines and gnss_lines_gdf is not None and not gnss_lines_gdf.empty:
-        type_colors = {'crest': '#FFD93D', 'CREST': '#FFD93D', 'edge': '#6C5CE7', 'bowl': '#A8E6CF'}
+        type_colors = {'crest': '#6C5CE7', 'CREST': '#6C5CE7', 'edge': '#FFD93D', 'bowl': '#A8E6CF'}
         default_color = "#C61826"
         for _, row in gnss_lines_gdf.iterrows():
             geometry = row.geometry
