@@ -538,14 +538,9 @@ def build_map(
         date_color_map = dict(zip([str(d) for d in dates_sorted], date_colormap(dates_sorted)))
         for _, row in playa_gdf.iterrows():
             c = date_color_map.get(str(row["date"]), MPL_GRID)
-            coords = list(row.geometry.exterior.coords)
-            locations = [[coord[1], coord[0]] for coord in coords]
-            folium.Polygon(
-                locations=locations,
-                fill_color=c,
-                color=c,
-                weight=1,
-                fill_opacity=opacity * 0.5,
+            folium.GeoJson(
+                row["geometry"].__geo_interface__,
+                style_function=lambda f, col=c: {"fillColor": col, "color": col, "weight": 1, "fillOpacity": opacity * 0.5},
                 tooltip=folium.Tooltip(f"<b>Playa</b><br>{row['date'].date()}")
             ).add_to(m)
 
