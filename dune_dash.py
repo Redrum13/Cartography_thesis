@@ -23,6 +23,7 @@ from windrose import WindroseAxes
 import os
 import json
 from PIL import Image
+from pyproj import Transformer
 
 # ------------------------------------------------------------------------------
 # PAGE CONFIG
@@ -42,20 +43,21 @@ st.set_page_config(
 # nothing else in the script should need to change.
 
 # ---- 1. DATA PATHS (INPUTS) -------------------------------------------------
-DATA_CREST_LINES        = "main_data/crest_post_process/extended_centerlines.geojson"
-DATA_MOVEMENT_POINTS    = "main_data/crest_post_process/centerline_points.geojson"
-DATA_PLAYA_POLYGONS     = "main_data/merged_playa.geojson"
-DATA_WIND_CSV           = "main_data/combined_weather_with_location.csv"
-DATA_UNCERTAINTY_LINES  = "main_data/uncertainty_analysis/uncertainty_lines_length.geojson"
-DATA_GNSS_POINTS        = "main_data/gnss_processed/GNSS_all_points.geojson"
-DATA_GNSS_EDGE_BOWL     = "main_data/gnss_processed/GNSS_edge_bowl_lines.geojson"
-DATA_GNSS_CREST         = "main_data/gnss_processed/GNSS_crest_lines.geojson"
-DATA_GEOMORPH_LINES     = "main_data/gnss_processed/Geomorph-SOS1_line-features.geojson"
-DATA_GEOMORPH_POINTS    = "main_data/gnss_processed/Geomorph-SOS1_point-features.geojson"
-DATA_GEOMORPH_POLYGONS  = "main_data/gnss_processed/Geomorph-SOS1_polygon-features.geojson"
-DATA_HOBO_WIND_CSV      = "main_data/Weatherstation_SOS_1_West_March_2026.csv"
-DATA_BASE_IMAGERY_META  = "Base_tif/metadata.json"
-BASE_IMAGERY_FOLDER     = "Base_tif"
+DATA_CREST_LINES        = "data/processed/crest_post_process/extended_centerlines.geojson"
+DATA_MOVEMENT_POINTS    = "data/processed/crest_post_process/centerline_points.geojson"
+DATA_PLAYA_POLYGONS     = "data/processed/merged_playa.geojson"
+DATA_WIND_CSV           = "data/processed/combined_weather_with_location.csv"
+DATA_UNCERTAINTY_LINES  = "data/processed/uncertainty_analysis/uncertainty_lines_length.geojson"
+DATA_GNSS_POINTS        = "data/processed/gnss_processed/GNSS_all_points.geojson"
+DATA_GNSS_EDGE_BOWL     = "data/processed/gnss_processed/GNSS_edge_bowl_lines.geojson"
+DATA_GNSS_CREST         = "data/processed/gnss_processed/GNSS_crest_lines.geojson"
+DATA_REF_LINE           = "Cartography_thesis/data/raw/reference_lines/star_dune_crsts.geojson"
+DATA_GEOMORPH_LINES     = "data/processed/gnss_processed/Geomorph-SOS1_line-features.geojson"
+DATA_GEOMORPH_POINTS    = "data/processed/gnss_processed/Geomorph-SOS1_point-features.geojson"
+DATA_GEOMORPH_POLYGONS  = "data/processed/gnss_processed/Geomorph-SOS1_polygon-features.geojson"
+DATA_HOBO_WIND_CSV      = "data/processed/Weatherstation_SOS_1_West_March_2026.csv"
+DATA_BASE_IMAGERY_META  = "data/processed/Base_tif/metadata.json"
+BASE_IMAGERY_FOLDER     = "data/processed/Base_tif"
 
 # SOS 1 WEST station location (EPSG:32733 easting/northing)
 HOBO_STATION_EASTING  = 533272.70433545333799
@@ -91,10 +93,9 @@ MAP_CENTER = [-24.76, 15.31]
 MAP_ZOOM = 14
 
 # ---- 3. STYLE ----------------------------------------------------------------
-MPL_BG = "#eeeeee"
-MPL_BG2 = "#8b8b8b"
+MPL_BG = "#ffffff"
 MPL_FG = "#050505"
-MPL_GRID = "#ffffff"
+MPL_GRID = "#bebebe"
 MPL_ACCENT = "#0065BD"
 MPL_ACCENT2 = "#C61826"
 
@@ -102,10 +103,10 @@ def month_abbr(month_name):
     return month_name[:3].upper()
 
 def _dark_fig(w, h):
-    fig, ax = plt.subplots(figsize=(w, h), facecolor=MPL_GRID)
-    ax.set_facecolor(MPL_GRID)
+    fig, ax = plt.subplots(figsize=(w, h), facecolor=MPL_BG)
+    ax.set_facecolor(MPL_BG)
     for sp in ax.spines.values():
-        sp.set_edgecolor(MPL_BG)
+        sp.set_edgecolor(MPL_GRID)
     ax.tick_params(colors=MPL_FG, labelsize=7)
     ax.xaxis.label.set_color(MPL_FG)
     ax.yaxis.label.set_color(MPL_FG)
@@ -116,7 +117,7 @@ def _dark_fig(w, h):
 LOGO_HEIDELBERG = "assets/heidelberg_logo.svg"   # left
 LOGO_TUM        = "assets/tum_logo.svg"          # right
 PROJECT_URL     = "https://www.asg.ed.tum.de/rsa/forschung/star-dune-dynamics/"
-AUTHOR_NAME     = "Radhika Dhuri"          
+AUTHOR_NAME     = "Radhika Dhuri"           
 
 # ------------------------------------------------------------------------------
 # DATA LOADING
@@ -206,7 +207,8 @@ def load_gnss_points():
 def load_gnss_lines():
     gdf_edge_bowl = gpd.read_file(DATA_GNSS_EDGE_BOWL).to_crs("EPSG:4326")
     gdf_crest = gpd.read_file(DATA_GNSS_CREST).to_crs("EPSG:4326")
-    return pd.concat([gdf_edge_bowl, gdf_crest], ignore_index=True)
+    gdf_ref = gpd.read_file(DATA_REF_LINE).to_crs("EPSG:4326")
+    return pd.concat([gdf_edge_bowl, gdf_crest, gdf_ref], ignore_index=True)
 
 @st.cache_data(show_spinner="Loading geomorphology layers ...")
 def load_geomorph_layers():
@@ -244,7 +246,6 @@ def load_hobo_wind_data():
 # ------------------------------------------------------------------------------
 
 def utm_to_latlon(easting, northing):
-    from pyproj import Transformer
     transformer = Transformer.from_crs("EPSG:32733", "EPSG:4326")
     lon, lat = transformer.transform(easting, northing)
     return lon, lat
@@ -349,16 +350,16 @@ def wind_completeness(wind_df, years=None, months=None, date_a=None, date_b=None
         return frac, sub
 
 def build_wind_rose_image(wind_df):
-    fig = plt.figure(figsize=(2.8, 2.8), facecolor=MPL_GRID)
+    fig = plt.figure(figsize=(2.8, 2.8), facecolor=MPL_BG)
     ax = WindroseAxes.from_ax(fig=fig)
     ax.bar(wind_df["direction"], wind_df["speed_ms"],
-           normed=True, opening=0.8, edgecolor=MPL_BG2,
+           normed=True, opening=0.8, edgecolor=MPL_GRID,
            cmap=plt.cm.Reds, bins=np.arange(0, 12, 2))
-    ax.set_facecolor(MPL_GRID)
+    ax.set_facecolor(MPL_BG)
     ax.tick_params(colors=MPL_FG, labelsize=8)
     fig.patch.set_alpha(1)
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=110, bbox_inches="tight", facecolor=MPL_GRID)
+    fig.savefig(buf, format="png", dpi=110, bbox_inches="tight", facecolor=MPL_BG)
     plt.close(fig)
     return base64.b64encode(buf.getvalue()).decode()
 
@@ -368,18 +369,18 @@ def build_simple_wind_rose(wind_df, date_start, date_end):
     if sub.empty or sub["direction"].notna().sum() < 5:
         return None, False
 
-    fig = plt.figure(figsize=(2.2, 2.2), facecolor=MPL_GRID)
+    fig = plt.figure(figsize=(2.2, 2.2), facecolor=MPL_BG)
     ax = WindroseAxes.from_ax(fig=fig)
     ax.bar(sub["direction"], sub["speed_ms"],
-           normed=True, opening=0.8, edgecolor=MPL_BG2,
+           normed=True, opening=0.8, edgecolor=MPL_GRID,
            cmap=plt.cm.Reds, bins=np.arange(0, 12, 2))
-    ax.set_facecolor(MPL_GRID)
+    ax.set_facecolor(MPL_BG)
     ax.tick_params(colors=MPL_FG, labelsize=6)
     ax.set_title('')
     ax.legend().set_visible(False)
     fig.patch.set_alpha(1)
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=90, bbox_inches="tight", facecolor=MPL_GRID)
+    fig.savefig(buf, format="png", dpi=90, bbox_inches="tight", facecolor=MPL_BG)
     plt.close(fig)
     return base64.b64encode(buf.getvalue()).decode(), True
 
@@ -438,7 +439,7 @@ def build_gantt_figure(wind_df, years, months):
     ax.set_xticks(xticks)
     ax.set_xticklabels(xlabels, fontsize=7, color=MPL_FG)
     ax.set_title("Wind Coverage", fontsize=12, color=MPL_ACCENT, pad=4)
-    ax.grid(axis="x", color=MPL_BG, linewidth=0.4, linestyle=":")
+    ax.grid(axis="x", color=MPL_GRID, linewidth=0.4, linestyle=":")
     fig.tight_layout(pad=0.4)
     return fig
 
@@ -954,12 +955,12 @@ def movement_trend_fig(var_gdf, nearest_pid):
                color="#0065BD", s=5, marker='d', zorder=5, label="Winter (Apr-Sep)")
     ax.scatter(trend.loc[mask_summer, "date"], trend.loc[mask_summer, "distance_m"],
                color="#C61826", s=5, marker='o', zorder=5, label="Summer (Oct-Mar)")
-    ax.plot(trend["date"], trend["distance_m"], marker="", color=MPL_FG, linewidth=1, alpha=0.5)
-    ax.axhline(0, color=MPL_BG, linestyle="--", linewidth=0.8)
+    ax.plot(trend["date"], trend["distance_m"], marker="", color=MPL_GRID, linewidth=1, alpha=0.5)
+    ax.axhline(0, color=MPL_GRID, linestyle="--", linewidth=0.8)
     ax.set_xlabel("Date", fontsize=7, color=MPL_FG)
     ax.set_ylabel("Distance (m)", fontsize=7, color=MPL_FG)
     ax.set_title(f"Point {nearest_pid}", fontsize=8, color=MPL_ACCENT)
-    ax.grid(color=MPL_BG, linewidth=0.4, linestyle=":")
+    ax.grid(color=MPL_GRID, linewidth=0.4, linestyle=":")
     ax.legend(fontsize=6, loc="best")
     fig.autofmt_xdate(rotation=30, ha="right")
     fig.tight_layout(pad=0.4)
@@ -1088,7 +1089,7 @@ def render_dashboard_layout_1(map_col, right_col):
 
             st.markdown(
                 f"""
-                <div style="display:flex;justify-content:space-between;background:{MPL_BG};padding:8px 12px;border-radius:4px;border:1px solid #D9DADB;margin-top:4px;font-family:sans-serif;">
+                <div style="display:flex;justify-content:space-between;background:#D9DADB;padding:8px 12px;border-radius:4px;border:1px solid #D9DADB;margin-top:4px;font-family:sans-serif;">
                     <span style="font-size:0.9rem;color:#0065BD;font-weight:600;">{date_a.strftime("%b %Y")}</span>
                     <span style="color:#050505;">→</span>
                     <span style="font-size:0.9rem;color:#0065BD;font-weight:600;">{date_b.strftime("%b %Y")}</span>
@@ -1384,36 +1385,36 @@ def main():
     st.divider()
 
     st.markdown(f"""
-        <div style="
-                    font-size:11px;
-                    color:{MPL_FG};
-                    font-family:sans-serif;
-                    text-align:center;">
-            © 2026 {AUTHOR_NAME} · MSc Cartography Thesis Project.<br>
-            This work is part of the Star Dune Dynamics Project funded by the 
-            German Research Foundation (DFG, project number 551866032).<br> 
-            Find more info on the project website:
-            <a href="{PROJECT_URL}" target="_blank" style="color:#0065BD;">Star Dune Dynamics</a><br>
-            <span style="font-size:10px; color:#6C757D;">
-            Data sources: 
-            <a href="https://sentinels.copernicus.eu/web/sentinel/missions/sentinel-2" 
-            target="_blank" 
-            style="color:#0065BD;">Copernicus Sentinel-2</a> · 
-            <a href="https://www.sasscalweathernet.com/" 
-            target="_blank" 
-            style="color:#0065BD;">SASSCAL WeatherNet (2020)</a> · 
-            <a href="{PROJECT_URL}" 
-            target="_blank" 
-            style="color:#0065BD;">GNSS Field Data</a>
-            </span>
-            <br>
-            <span style="font-size:9px; color:#6C757D;">
-            Contains modified Copernicus Sentinel data 2026 · 
-            SASSCAL WeatherNet data used under license · 
-            GNSS data collected under DFG project 551866032
-            </span>
-        </div>
-        """, unsafe_allow_html=True)
+            <div style="
+                        font-size:11px;
+                        color:{MPL_FG};
+                        font-family:sans-serif;
+                        text-align:center;">
+                © 2026 {AUTHOR_NAME} · MSc Cartography Thesis Project.<br>
+                This work is part of the Star Dune Dynamics Project funded by the 
+                German Research Foundation (DFG, project number 551866032).<br> 
+                Find more info on the project website:
+                <a href="{PROJECT_URL}" target="_blank" style="color:#0065BD;">Star Dune Dynamics</a><br>
+                <span style="font-size:10px; color:#6C757D;">
+                Data sources: 
+                <a href="https://sentinels.copernicus.eu/web/sentinel/missions/sentinel-2" 
+                target="_blank" 
+                style="color:#0065BD;">Copernicus Sentinel-2</a> · 
+                <a href="https://www.sasscalweathernet.com/" 
+                target="_blank" 
+                style="color:#0065BD;">SASSCAL WeatherNet (2020)</a> · 
+                <a href="{PROJECT_URL}" 
+                target="_blank" 
+                style="color:#0065BD;">GNSS Field Data</a>
+                </span>
+                <br>
+                <span style="font-size:9px; color:#6C757D;">
+                Contains modified Copernicus Sentinel data 2026 · 
+                SASSCAL WeatherNet data used under license · 
+                GNSS data collected under DFG project 551866032
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
